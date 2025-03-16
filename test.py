@@ -14,7 +14,6 @@ for file in files:
         source = source_file.read()
         try:
             compiler.compile(source)
-            break
         except Exception as e:
             failed += 1
             print(f'{file} - FAIL: {str(e)}')

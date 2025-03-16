@@ -114,8 +114,8 @@ for_loop: "for" ID "=" expr "," expr ("," expr)? "do" chunk "end" -> for_loop_nu
 ID: /[^\W\d]\w*/
 SHEBANG: /^#(.*)/
 
-COMMENT: /--(?!\[).*/
-LONG_COMMENT: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
+COMMENT: /--.*/
+LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
