@@ -1,0 +1,119 @@
+%import common.WS
+
+start: chunk
+chunk: (statement ";"?)* (last_stmt ";"?)?
+
+name_list: ID ("," ID)*
+number: DEC_NUMBER | HEX_NUMBER
+string: STRING | MULTISTRING
+
+?var: ID
+    | primary "." ID -> dot_access
+    | primary "[" expr "]" -> table_access
+var_list: var ("," var)*
+
+table_constructor: "{" field_list? "}"
+field_list: field (FIELD_SEP field)* FIELD_SEP?
+field: "[" expr "]" "=" expr
+    | ID "=" expr
+    | expr
+
+?expr: or_expr
+?or_expr: and_expr
+    | or_expr "or" and_expr
+?and_expr: comp_expr
+    | and_expr "and" comp_expr
+?comp_expr: bw_or_expr
+    | comp_expr "<" bw_or_expr -> comp_lt
+    | comp_expr ">" bw_or_expr -> comp_gt
+    | comp_expr "<=" bw_or_expr -> comp_le
+    | comp_expr ">=" bw_or_expr -> comp_ge
+    | comp_expr "==" bw_or_expr -> comp_eq
+    | comp_expr "~=" bw_or_expr -> comp_neq
+?bw_or_expr: bw_xor_expr
+    | bw_or_expr "|" bw_xor_expr
+?bw_xor_expr: bw_and_expr
+    | bw_xor_expr "~" bw_and_expr
+?bw_and_expr: bw_shift_expr
+    | bw_and_expr "&" bw_shift_expr
+?bw_shift_expr: concat_expr
+    | bw_shift_expr "<<" concat_expr -> lsh_expr
+    | bw_shift_expr ">>" concat_expr -> rsh_expr
+?concat_expr: add_expr
+    | add_expr ".." concat_expr
+?add_expr: mul_expr
+    | add_expr "+" mul_expr -> add_expr
+    | add_expr "-" mul_expr -> sub_expr
+?mul_expr: unary_expr
+    | mul_expr "*" unary_expr -> mul_expr
+    | mul_expr "/" unary_expr -> div_expr
+    | mul_expr "//" unary_expr -> fdiv_expr
+    | mul_expr "%" unary_expr -> mod_expr
+?unary_expr: exp_expr
+    | "-" exp_expr -> unary_minus
+    | "not" exp_expr -> unary_not
+    | "#" exp_expr -> unary_length
+    | "~" exp_expr -> unary_bw_not
+?exp_expr: primary
+    | primary "^" exp_expr
+?primary: number
+    | string
+    | var
+    | func_call
+    | func_def
+    | table_constructor
+    | "(" expr ")"
+    | "true" -> true
+    | "false" -> false
+    | "nil" -> nil
+expr_list: expr ("," expr)*
+
+?statement: assign_stmt
+    | func_call
+    | func_def
+    | "do" chunk "end" -> block
+    | if_stmt
+    | "while" expr "do" chunk "end" -> while_stmt
+    | "repeat" chunk "until" expr "end" -> repeat_stmt
+    | for_loop
+    | "local" name_list ("=" expr_list)? -> local_stmt
+    | "::" ID "::" -> label
+    | "goto" ID -> goto
+?last_stmt: "return" expr_list? -> return_stmt
+    | "break" -> break_stmt
+
+assign_stmt: var_list "=" expr_list
+
+func_call: primary _func_call_params
+    | primary ":" ID _func_call_params -> method_call
+_func_call_params: "(" expr_list? ")" | table_constructor | string
+
+func_def: "function" _func_body "end"
+    | "function" _func_name _func_body "end" -> func_assign_def
+    | "local" "function" ID _func_body "end"
+_func_name: ID ("." ID)* (":" ID)?
+_func_body: "(" func_params? ")" chunk
+func_params: name_list ("," "...")?
+    | "..." -> varargs
+
+if_stmt: "if" expr "then" chunk elseif* ("else" chunk)? "end"
+elseif: "elseif" expr "then" chunk
+
+for_loop: "for" ID "=" expr "," expr ("," expr)? "do" chunk "end" -> for_loop_num
+    | "for" name_list "in" expr_list "do" chunk "end" -> for_loop_gen
+
+ID: /[^\W\d]\w*/
+FIELD_SEP: "," | ";"
+
+COMMENT: /--[^[]?.*/
+LONG_COMMENT: /--\[\[.*?--]]/s
+
+STRING: /"(?:[^"\\\r\n]|\\.)*"|'(?:[^'\\\r\n]|\\.)*'/
+MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
+
+DEC_NUMBER: /(?:\d*\.\d+|\d+)(?:[eE][+-]?\d+)?/
+HEX_NUMBER: /0[xX][\da-fA-F]+(?:[pP][1-9]\d*)?/
+
+%ignore WS
+%ignore COMMENT
+%ignore LONG_COMMENT
