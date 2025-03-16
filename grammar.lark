@@ -1,6 +1,6 @@
 %import common.WS
 
-start: chunk
+start: SHEBANG? chunk
 chunk: (statement ";"?)* (last_stmt ";"?)?
 
 name_list: ID ("," ID)*
@@ -13,7 +13,7 @@ string: STRING | MULTISTRING
 var_list: var ("," var)*
 
 table_constructor: "{" field_list? "}"
-field_list: field (FIELD_SEP field)* FIELD_SEP?
+field_list: field (("," | ";") field)* ("," | ";")?
 field: "[" expr "]" "=" expr
     | ID "=" expr
     | expr
@@ -56,7 +56,7 @@ field: "[" expr "]" "=" expr
     | "~" exp_expr -> unary_bw_not
 ?exp_expr: primary
     | primary "^" exp_expr
-?primary: number
+?primary.1: number
     | string
     | var
     | func_def
@@ -66,16 +66,17 @@ field: "[" expr "]" "=" expr
     | "true" -> true
     | "false" -> false
     | "nil" -> nil
+    | "..." -> vararg
 expr_list: expr ("," expr)*
 
 ?statement: assign_stmt
     | local_stmt
     | func_def_stmt
-//    | func_call
+    | func_call
     | "do" chunk "end" -> block
     | if_stmt
     | "while" expr "do" chunk "end" -> while_stmt
-    | "repeat" chunk "until" expr "end" -> repeat_stmt
+    | "repeat" chunk "until" expr -> repeat_stmt
     | for_loop
     | local_stmt
     | "::" ID "::" -> label
@@ -96,7 +97,7 @@ _func_call_params: "(" expr_list? ")" | table_constructor | string
 func_def: "function" func_body
 ?func_body: "(" param_list? ")" chunk "end"
 ?param_list: expr_list
-    | expr_list "," "..." -> vararg_list
+    | expr ("," expr)* "," "..." -> vararg_list
     | "..." -> varargs
 func_def_stmt: "function" func_name func_body
     | "local" "function" ID func_body -> local_func_def
@@ -110,10 +111,10 @@ for_loop: "for" ID "=" expr "," expr ("," expr)? "do" chunk "end" -> for_loop_nu
     | "for" name_list "in" expr_list "do" chunk "end" -> for_loop_gen
 
 ID: /[^\W\d]\w*/
-FIELD_SEP: "," | ";"
+SHEBANG: /^#!(.*)/
 
 COMMENT: /--[^[]?.*/
-LONG_COMMENT: /--\[\[.*?--]]/s
+LONG_COMMENT: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 
 STRING: /"(?:[^"\\\r\n]|\\.)*"|'(?:[^'\\\r\n]|\\.)*'/
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s

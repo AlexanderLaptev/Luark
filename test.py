@@ -1,16 +1,26 @@
 import time
+import os
 
 from lark import Lark
 
-# with open("grammar.lark") as f1, open("grammar_test.lua") as f2:
-with open("grammar.lark") as f1, open("test.lua") as f2:
-    s_grammar = f1.read()
-    s_input = f2.read()
+with open("grammar.lark") as grammar_file:
+    lark = Lark(grammar_file.read(), parser="lalr", debug=True)
 
-
-lark = Lark(s_grammar, parser="lalr")
+path = "lua-5.4.7-tests"
+files = os.listdir(path)
+failed = 0
 start = time.time()
-tree = lark.parse(s_input)
+for file in files:
+    full_path = os.path.join(path, file)
+    with open(full_path) as source_file:
+        source = source_file.read()
+        try:
+            lark.parse(source)
+        except Exception as e:
+            failed += 1
+            print(f'{file} - FAIL: {str(e)}')
 end = time.time()
-print(tree.pretty())
-print(f'Done in {round(end - start, 3)} seconds.')
+
+total = len(files)
+percent = int(round(failed / total * 100, 2))
+print(f'Done - {failed} ({percent}%) failed out of {len(files)} ({round(end - start, 3)} ms)')
