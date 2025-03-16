@@ -1,10 +1,8 @@
 import time
 import os
+import compiler
 
-from lark import Lark
-
-with open("grammar.lark") as grammar_file:
-    lark = Lark(grammar_file.read(), parser="lalr", debug=True)
+compiler = compiler.LuaCompiler()
 
 path = "lua-5.4.7-tests"
 files = os.listdir(path)
@@ -15,7 +13,8 @@ for file in files:
     with open(full_path) as source_file:
         source = source_file.read()
         try:
-            lark.parse(source)
+            compiler.compile(source)
+            break
         except Exception as e:
             failed += 1
             print(f'{file} - FAIL: {str(e)}')
@@ -23,4 +22,4 @@ end = time.time()
 
 total = len(files)
 percent = int(round(failed / total * 100, 2))
-print(f'Done - {failed} ({percent}%) failed out of {len(files)} ({round(end - start, 3)} ms)')
+print(f'Done - {failed} ({percent}%) failed out of {len(files)} ({round((end - start) * 1000)} ms)')
