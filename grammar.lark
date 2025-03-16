@@ -59,8 +59,8 @@ field: "[" expr "]" "=" expr
 ?primary: number
     | string
     | var
-    | func_call
     | func_def
+    | func_call
     | table_constructor
     | "(" expr ")"
     | "true" -> true
@@ -69,32 +69,39 @@ field: "[" expr "]" "=" expr
 expr_list: expr ("," expr)*
 
 ?statement: assign_stmt
-    | func_call
-    | func_def
+    | local_stmt
+    | func_def_stmt
+//    | func_call
     | "do" chunk "end" -> block
     | if_stmt
     | "while" expr "do" chunk "end" -> while_stmt
     | "repeat" chunk "until" expr "end" -> repeat_stmt
     | for_loop
-    | "local" name_list ("=" expr_list)? -> local_stmt
+    | local_stmt
     | "::" ID "::" -> label
     | "goto" ID -> goto
 ?last_stmt: "return" expr_list? -> return_stmt
     | "break" -> break_stmt
 
 assign_stmt: var_list "=" expr_list
+local_stmt: "local" attr_name_list ("=" expr_list)?
+attr_name_list: ID attribute ("," ID attribute)*
+?attribute: ("<" ID ">")?
 
 func_call: primary _func_call_params
+    | primary _func_call_params
     | primary ":" ID _func_call_params -> method_call
 _func_call_params: "(" expr_list? ")" | table_constructor | string
 
-func_def: "function" _func_body "end"
-    | "function" _func_name _func_body "end" -> func_assign_def
-    | "local" "function" ID _func_body "end"
-_func_name: ID ("." ID)* (":" ID)?
-_func_body: "(" func_params? ")" chunk
-func_params: name_list ("," "...")?
+func_def: "function" func_body
+?func_body: "(" param_list? ")" chunk "end"
+?param_list: expr_list
+    | expr_list "," "..." -> vararg_list
     | "..." -> varargs
+func_def_stmt: "function" func_name func_body
+    | "local" "function" ID func_body -> local_func_def
+?func_name: ID ("." ID)*
+    | ID ("." ID)* ":" ID -> method_name
 
 if_stmt: "if" expr "then" chunk elseif* ("else" chunk)? "end"
 elseif: "elseif" expr "then" chunk

@@ -8,7 +8,7 @@ with open("grammar.lark") as f1, open("test.lua") as f2:
     s_input = f2.read()
 
 
-lark = Lark(s_grammar, parser="earley")
+lark = Lark(s_grammar, parser="lalr")
 start = time.time()
 tree = lark.parse(s_input)
 end = time.time()
