@@ -13,7 +13,7 @@ for file in files:
     with open(full_path) as source_file:
         source = source_file.read()
         try:
-            compiler.compile(source)
+            compiler.compile_source(source)
         except Exception as e:
             failed += 1
             print(f'{file} - FAIL: {str(e)}')

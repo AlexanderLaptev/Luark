@@ -7,10 +7,10 @@ name_list: ID ("," ID)*
 number: DEC_NUMBER | HEX_NUMBER
 string: STRING | MULTISTRING
 
-?var: ID
+var: ID
     | primary "." ID -> dot_access
     | primary "[" expr "]" -> table_access
-var_list: var ("," var)*
+?var_list: var ("," var)*
 
 table_constructor: "{" field_list? "}"
 field_list: field (("," | ";") field)* ("," | ";")?
@@ -78,11 +78,11 @@ expr_list: expr ("," expr)*
     | if_stmt
     | "while" expr "do" chunk "end" -> while_stmt
     | "repeat" chunk "until" expr -> repeat_stmt
-    | "break"
+    | "break" -> break_stmt
     | for_loop
     | local_stmt
     | "::" ID "::" -> label
-    | "goto" ID -> goto
+    | "goto" ID -> goto_stmt
 ?return_stmt: "return" expr_list? ";"?
 
 assign_stmt: var_list "=" expr_list
