@@ -10,7 +10,7 @@ string: STRING | MULTISTRING
 var: ID
     | primary "." ID -> dot_access
     | primary "[" expr "]" -> table_access
-?var_list: var ("," var)*
+var_list: var ("," var)*
 
 table_constructor: "{" field_list? "}"
 field_list: field (("," | ";") field)* ("," | ";")?
@@ -91,7 +91,6 @@ attr_name_list: ID attribute ("," ID attribute)*
 ?attribute: ("<" ID ">")?
 
 func_call: primary _func_call_params
-    | primary _func_call_params
     | primary ":" ID _func_call_params -> method_call
 _func_call_params: "(" expr_list? ")" | table_constructor | string
 
