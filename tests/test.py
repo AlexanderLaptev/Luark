@@ -1,10 +1,11 @@
-import time
 import os
-import compiler
+import time
 
-compiler = compiler.LuaCompiler()
+from luark.compiler import *
 
-path = "lua-5.4.7-tests"
+compiler = Compiler()
+
+path = "../lua-5.4.7-tests"
 files = os.listdir(path)
 failed = 0
 start = time.time()

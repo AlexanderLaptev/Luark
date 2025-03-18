@@ -1,10 +1,13 @@
 %import common.WS
 
 start: SHEBANG? chunk
-chunk: statement* return_stmt?
+chunk: block
+block: statement* return_stmt?
 
 name_list: ID ("," ID)*
-number: DEC_NUMBER | HEX_NUMBER
+number: DEC_INT -> dec_int
+    | DEC_FLOAT -> dec_float
+    | HEX_NUMBER -> hex_number
 string: STRING | MULTISTRING
 
 var: ID
@@ -74,10 +77,10 @@ expr_list: expr ("," expr)*
     | local_stmt
     | func_def_stmt
     | func_call
-    | "do" chunk "end" -> block
+    | "do" block "end"
     | if_stmt
-    | "while" expr "do" chunk "end" -> while_stmt
-    | "repeat" chunk "until" expr -> repeat_stmt
+    | "while" expr "do" block "end" -> while_stmt
+    | "repeat" block "until" expr -> repeat_stmt
     | "break" -> break_stmt
     | for_loop
     | local_stmt
@@ -86,16 +89,16 @@ expr_list: expr ("," expr)*
 ?return_stmt: "return" expr_list? ";"?
 
 assign_stmt: var_list "=" expr_list
-local_stmt: "local" attr_name_list ("=" expr_list)?
-attr_name_list: ID attribute ("," ID attribute)*
-?attribute: ("<" ID ">")?
+local_stmt: "local" attrib_name_list ("=" expr_list)?
+attrib_name_list: attrib_name ("," attrib_name)*
+?attrib_name: ID ("<" ID ">")?
 
 func_call: primary _func_call_params
     | primary ":" ID _func_call_params -> method_call
 _func_call_params: "(" expr_list? ")" | table_constructor | string
 
 func_def: "function" func_body
-?func_body: "(" param_list? ")" chunk "end"
+?func_body: "(" param_list? ")" block "end"
 ?param_list: expr_list
     | expr ("," expr)* "," "..." -> vararg_list
     | "..." -> varargs
@@ -104,11 +107,11 @@ func_def_stmt: "function" func_name func_body
 ?func_name: ID ("." ID)*
     | ID ("." ID)* ":" ID -> method_name
 
-if_stmt: "if" expr "then" chunk elseif* ("else" chunk)? "end"
-elseif: "elseif" expr "then" chunk
+if_stmt: "if" expr "then" block elseif* ("else" block)? "end"
+elseif: "elseif" expr "then" block
 
-for_loop: "for" ID "=" expr "," expr ("," expr)? "do" chunk "end" -> for_loop_num
-    | "for" name_list "in" expr_list "do" chunk "end" -> for_loop_gen
+for_loop: "for" ID "=" expr "," expr ("," expr)? "do" block "end" -> for_loop_num
+    | "for" name_list "in" expr_list "do" block "end" -> for_loop_gen
 
 ID: /[^\W\d]\w*/
 SHEBANG: /^#(.*)/
@@ -119,9 +122,15 @@ LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
 
-DEC_NUMBER: /(?:\.\d+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?/
+//DEC_NUMBER: /(?:\.\d+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?/
+DEC_NUMBER: DEC_INT | DEC_FLOAT
+DEC_INT: /\d+(?:[eE][+-]?\d+)?/
+DEC_FLOAT: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
+HEX_NUMBER: HEX_INT | HEX_FLOAT
+HEX_INT: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
+HEX_FLOAT: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
 //HEX_NUMBER.10: /0[xX][\da-fA-F]+(?:\.[\da-fA-F]+)?(?:[pP][+-]?[1-9]\d*)?/
-HEX_NUMBER.10: /0[xX](?:\.[\da-fA-F]+|[\da-fA-F]+(?:\.[\da-fA-F]*)?)(?:\.[\da-fA-F]+)?(?:[pP][+-]?[1-9]\d*)?/
+//HEX_NUMBER.10: /0[xX](?:\.[\da-fA-F]+|[\da-fA-F]+(?:\.[\da-fA-F]*)?)(?:\.[\da-fA-F]+)?(?:[pP][+-]?[1-9]\d*)?/
 
 %ignore WS
 %ignore COMMENT

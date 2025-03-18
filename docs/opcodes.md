@@ -1,0 +1,5 @@
+- pushtrue/pushfalse/pushnil/pushi/push
+- lload/lstore - local load/store
+- gload/gstore - global load/store
+- call/return
+- add/sub/mul/div/fdiv/mod/exp
