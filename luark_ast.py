@@ -1,3 +1,5 @@
+import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import List
 
@@ -8,6 +10,7 @@ class Prototype:
     def __init__(self):
         self.consts: List[str] = []
         self.opcodes: List[str] = []
+        self.locals: List[str] = []
 
     def __str__(self):
         result = ["constants:"]
@@ -82,21 +85,16 @@ class ExprList(_Ast, ast_utils.AsList):
 
 
 @dataclass
-class AddExpr(Expr):
+class BinOpExpr:
+    op: str
     left: Expr
     right: Expr
 
     def evaluate(self, *args, **kwargs):
         proto = args[0]
-        if (isinstance(self.left, Number)
-                and isinstance(self.right, Number)):
-            result = self.left.value + self.right.value
-            idx = proto.get_const(result)
-            proto.add_opcode(f"pushc {idx}")
-        else:
-            self.left.evaluate(*args, **kwargs)
-            self.right.evaluate(*args, **kwargs)
-            proto.add_opcode("add")
+        self.left.evaluate(*args, **kwargs)
+        self.right.evaluate(*args, **kwargs)
+        proto.add_opcode(self.op)
 
 
 @dataclass
@@ -147,6 +145,7 @@ class Chunk(_Ast, ast_utils.AsList):
         print(proto)
 
 
+# noinspection PyPep8Naming
 class ToAst(Transformer):
     def DEC_NUMBER(self, n):
         return float(n)
@@ -167,5 +166,46 @@ class ToAst(Transformer):
     def ID(self, s):
         return str(s)
 
-    def var_list(self, l):
-        return [v.name for v in l]
+    def var_list(self, c):
+        return [v.name for v in c]
+
+    def concat_expr(self, c):
+        if (isinstance(c[0], String)
+                and isinstance(c[1], String)):
+            return String(c[0].value + c[1].value)
+        else:
+            raise NotImplementedError
+
+    def _bin_num_op_expr(self, c: List, op: str, func: Callable):
+        if (isinstance(c[0], Number)
+                and isinstance(c[1], Number)):
+            return Number(func(c[0].value, c[1].value))
+        else:
+            return BinOpExpr(op, *c)
+
+    def add_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x + y)
+
+    def sub_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x - y)
+
+    def mul_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x * y)
+
+    def div_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x / y)
+
+    def fdiv_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: math.floor(x / y))
+
+    def mod_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x % y)
+
+    def exp_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x ** y)
+
+    def unary_minus(self, c):
+        if isinstance(c[0], Number):
+            return Number(-c[0].value)
+        else:
+            raise NotImplementedError
