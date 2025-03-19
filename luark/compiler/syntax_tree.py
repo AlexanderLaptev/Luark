@@ -40,7 +40,7 @@ class TrueValue(_Ast):
 
 class FalseValue(_Ast):
     def evaluate(self, *args, **kwargs):
-        args[0].add_opcode("push_true")
+        args[0].add_opcode("push_false")
 
 
 class Expr(_Ast):
@@ -226,6 +226,42 @@ class IfStmt(_Ast, ast_utils.AsList):
 
 
 @dataclass
+class WhileStmt(_Ast):
+    expr: Expr
+    block: Block
+
+    def evaluate(self, *args, **kwargs):
+        if isinstance(self.expr, FalseValue):
+            return
+        proto: Prototype = args[0]
+
+        cond_pc = proto.current_pc + 1
+        self.expr.evaluate(proto)
+        proto.add_opcode("test")
+        end_jump = proto.remember()
+        self.block.evaluate(proto)
+        proto.add_jump_to(cond_pc)
+        proto.set_jump_here(end_jump)
+
+
+@dataclass
+class RepeatStmt(_Ast):
+    block: Block
+    expr: Expr
+
+    def evaluate(self, *args, **kwargs):
+        if isinstance(self.expr, TrueValue):
+            return
+        proto: Prototype = args[0]
+
+        block_pc = proto.current_pc + 1
+        self.block.evaluate(proto)
+        self.expr.evaluate(proto)
+        proto.add_opcode("test")
+        proto.add_jump_to(block_pc)
+
+
+@dataclass
 class Chunk(_Ast):
     block: Block
 
@@ -294,7 +330,7 @@ class ToAst(Transformer):
         return TrueValue()
 
     def false(self, c):
-        return FalseValue
+        return FalseValue()
 
     def ID(self, s):
         return str(s)

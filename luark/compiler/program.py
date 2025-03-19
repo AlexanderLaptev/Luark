@@ -33,6 +33,9 @@ class Prototype:
     def set_jump_here(self, pc: int):
         self.opcodes[pc] = f"jump {self.current_pc - pc + 1}"
 
+    def add_jump_to(self, pc: int):
+        self.add_opcode(f"jump {pc - self.current_pc - 1}")
+
     def remember(self) -> int:
         self.opcodes.append("")
         return self.current_pc
