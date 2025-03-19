@@ -122,15 +122,12 @@ LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
 
-//DEC_NUMBER: /(?:\.\d+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?/
 DEC_NUMBER: DEC_INT | DEC_FLOAT
 DEC_INT: /\d+(?:[eE][+-]?\d+)?/
 DEC_FLOAT: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
 HEX_NUMBER: HEX_INT | HEX_FLOAT
 HEX_INT: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
 HEX_FLOAT: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
-//HEX_NUMBER.10: /0[xX][\da-fA-F]+(?:\.[\da-fA-F]+)?(?:[pP][+-]?[1-9]\d*)?/
-//HEX_NUMBER.10: /0[xX](?:\.[\da-fA-F]+|[\da-fA-F]+(?:\.[\da-fA-F]*)?)(?:\.[\da-fA-F]+)?(?:[pP][+-]?[1-9]\d*)?/
 
 %ignore WS
 %ignore COMMENT

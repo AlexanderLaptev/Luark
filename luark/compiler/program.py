@@ -6,6 +6,7 @@ class Prototype:
         self.consts = Index()
         self.opcodes: list[str] = []
         self.locals: list[str] = []
+        self.loop_jumps_stack: list[list[int]] = []
 
     def __str__(self):
         result = ["constants:"]

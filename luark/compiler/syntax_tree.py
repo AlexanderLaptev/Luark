@@ -235,13 +235,18 @@ class WhileStmt(_Ast):
             return
         proto: Prototype = args[0]
 
+        end_jumps = []
+        proto.loop_jumps_stack.append(end_jumps)
         cond_pc = proto.current_pc + 1
         self.expr.evaluate(proto)
         proto.add_opcode("test")
-        end_jump = proto.remember()
+        end_jumps.append(proto.remember())
         self.block.evaluate(proto)
         proto.add_jump_to(cond_pc)
-        proto.set_jump_here(end_jump)
+
+        for e in end_jumps:
+            proto.set_jump_here(e)
+        proto.loop_jumps_stack.pop()
 
 
 @dataclass
@@ -254,11 +259,26 @@ class RepeatStmt(_Ast):
             return
         proto: Prototype = args[0]
 
+        end_jumps = []
+        proto.loop_jumps_stack.append(end_jumps)
+
         block_pc = proto.current_pc + 1
         self.block.evaluate(proto)
         self.expr.evaluate(proto)
         proto.add_opcode("test")
         proto.add_jump_to(block_pc)
+
+        for e in end_jumps:
+            proto.set_jump_here(e)
+        proto.loop_jumps_stack.pop()
+
+
+class BreakStmt(_Ast):
+    def evaluate(self, *args, **kwargs):
+        proto: Prototype = args[0]
+        if not proto.loop_jumps_stack:
+            raise CompilationError("break statement outside of loop.")
+        proto.loop_jumps_stack[-1].append(proto.remember())
 
 
 @dataclass

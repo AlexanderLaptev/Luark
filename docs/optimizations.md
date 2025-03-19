@@ -1,3 +1,4 @@
 # Bytecode
 - collapse `push_false+test` and `push_true+test`
+- consecutive jumps (a constant jump to a constant jump, optimize in multiple passes)
  
