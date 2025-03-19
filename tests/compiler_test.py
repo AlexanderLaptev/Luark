@@ -1,4 +1,4 @@
 from luark.compiler import Compiler
 
 compiler = Compiler(debug=True)
-compiler.compile_file("tests/script.lua")
+compiler.compile_file("script.lua")

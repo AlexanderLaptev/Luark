@@ -1,11 +1,11 @@
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import List
 
 from lark import ast_utils, Transformer
 from lark.visitors import Discard
 
+from luark.compiler.errors import InternalCompilerError
 from luark.compiler.program import Prototype
 
 
@@ -45,6 +45,31 @@ class FalseValue(_Ast):
 
 class Expr(_Ast):
     pass
+
+
+@dataclass
+class DotAccess(_Ast):
+    primary: Expr
+    name: str
+
+    def evaluate(self, *args, **kwargs):
+        proto: Prototype = args[0]
+        self.primary.evaluate(*args, **kwargs)
+        idx = proto.get_const(self.name)
+        proto.add_opcode(f"push_int {idx}")
+        proto.add_opcode(f"get_field")
+
+
+@dataclass
+class TableAccess(_Ast):
+    primary: Expr
+    expr: Expr
+
+    def evaluate(self, *args, **kwargs):
+        proto: Prototype = args[0]
+        self.primary.evaluate(*args, **kwargs)
+        self.expr.evaluate(*args, **kwargs)
+        proto.add_opcode(f"get_field")
 
 
 @dataclass
@@ -93,7 +118,7 @@ class BinOpExpr:
 @dataclass
 class FuncCall(_Ast):
     primary: Expr
-    params: List[Expr] | None = None
+    params: list[Expr] | None = None
 
     def evaluate(self, *args, **kwargs):
         proto: Prototype = args[0]
@@ -103,18 +128,19 @@ class FuncCall(_Ast):
                 e.evaluate(*args, **kwargs)
 
         self.primary.evaluate(*args, **kwargs)
+
         proto.add_opcode(f"call")
 
 
 @dataclass
 class AssignStmt(_Ast):
-    var_list: List[str]
-    expr_list: List[Expr]
+    var_list: list[str]
+    expr_list: list[Expr]
 
     def evaluate(self, *args, **kwargs):
         proto: Prototype = args[0]
         nil_count = len(self.var_list) - len(self.expr_list)
-        exprs: List[Expr | None] = self.expr_list
+        exprs: list[Expr | None] = self.expr_list
         for _ in range(nil_count):
             exprs.append(None)
         for v, e in zip(self.var_list, self.expr_list):
@@ -134,8 +160,8 @@ class AttribName(_Ast):
 
 @dataclass
 class LocalStmt(_Ast):
-    attrib_name_list: List[AttribName]
-    expr_list: List[Expr] | None
+    attrib_name_list: list[AttribName]
+    expr_list: list[Expr] | None
 
     def evaluate(self, *args, **kwargs):
         proto: Prototype = args[0]
@@ -144,14 +170,59 @@ class LocalStmt(_Ast):
 
 @dataclass
 class Block(_Ast, ast_utils.AsList):
-    stmts: List
+    stmts: list
 
     def evaluate(self, *args, **kwargs):
         proto: Prototype = args[0]
         for s in self.stmts:
             s.evaluate(proto)
-        proto.add_opcode("return")
         return proto
+
+
+@dataclass
+class Elseif(_Ast):
+    expr: Expr
+    block: Block
+
+
+class IfStmt(_Ast, ast_utils.AsList):
+    def __init__(self, children):
+        self.expr: Expr = children[0]
+        self.block: Block = children[1]
+        self.elseifs: list[Elseif] = []
+        self.elze: Block | None = None
+
+        for i in range(2, len(children)):
+            child = children[i]
+            if isinstance(child, Elseif):
+                self.elseifs.append(child)
+            elif isinstance(child, Block):
+                if self.elze:
+                    raise InternalCompilerError("Extraneous 'else' block in if-statement.")
+                self.elze = child
+            else:
+                raise InternalCompilerError("Malformed if-statement.")
+
+    def evaluate(self, *args, **kwargs):
+        proto: Prototype = args[0]
+
+        blocks = [(self.block, self.expr), *((e.block, e.expr) for e in self.elseifs)]
+        end_jumps = []
+
+        for i, b in enumerate(blocks):
+            b[1].evaluate(proto)
+            proto.add_opcode("test")
+            pc = proto.remember()
+            b[0].evaluate(proto)
+            if (i != len(blocks) - 1) or self.elze:
+                end_jumps.append(proto.remember())
+            proto.set_jump_here(pc)
+
+        if self.elze:
+            self.elze.evaluate(proto)
+
+        for e in end_jumps:
+            proto.set_jump_here(e)
 
 
 @dataclass
@@ -159,7 +230,9 @@ class Chunk(_Ast):
     block: Block
 
     def evaluate(self, *args, **kwargs):
-        self.block.evaluate(args[0].prototype)
+        proto: Prototype = args[0].prototype
+        self.block.evaluate(proto)
+        proto.add_opcode("return")
 
 
 # noinspection PyPep8Naming
@@ -170,19 +243,33 @@ class ToAst(Transformer):
     # def HEX_NUMBER(self, n):
     #     return float(n)
 
+    # TODO: raise error on unknown escape sequences
+    # TODO: support \xXX, \ddd, \u{XXX}
     def STRING(self, s):
-        return (str(s)[1:-1]
-                .replace("\\z\n", "")
-                .replace("\\n", "\n"))
+        s = ''.join([s.strip() for s in s.split("\\z")])
+        s = (str(s)[1:-1]
+             .replace("\\a", "\a")
+             .replace("\\b", "\b")
+             .replace("\\f", "\f")
+             .replace("\\n", "\n")
+             .replace("\\r", "\r")
+             .replace("\\t", "\t")
+             .replace("\\v", "\v")
+             .replace("\\\\", "\\")
+             .replace("\\\"", "\"")
+             .replace("\\\'", "\'")
+             .replace("\\\n", "\n"))
+        return s
 
     def MULTISTRING(self, s):
-        s = str(s)
-        size = s.find("[", 1) + 1
-        return s[size:-size]
+        raise NotImplementedError
+        # s = str(s)
+        # size = s.find("[", 1) + 1
+        # return s[size:-size]
 
     def dec_int(self, n):
         num: str = n[0]
-        num: List[str] = num.casefold().split("e")
+        num: list[str] = num.casefold().split("e")
         if len(num) == 1:
             return Number(int(num[0]))
         elif len(num) == 2:
@@ -192,7 +279,7 @@ class ToAst(Transformer):
 
     def dec_float(self, f):
         num: str = f[0]
-        num: List[str] = num.casefold().split("e")
+        num: list[str] = num.casefold().split("e")
         if len(num) == 1:
             return Number(float(num[0]))
         elif len(num) == 2:
@@ -231,7 +318,7 @@ class ToAst(Transformer):
         else:
             raise NotImplementedError
 
-    def _bin_num_op_expr(self, c: List, op: str, func: Callable):
+    def _bin_num_op_expr(self, c: list, op: str, func: Callable):
         if (isinstance(c[0], Number)
                 and isinstance(c[1], Number)):
             return Number(func(c[0].value, c[1].value))

@@ -25,6 +25,18 @@ class Prototype:
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
 
+    def set_opcode(self, pc: int, opcode):
+        self.opcodes[pc] = opcode
+
+    current_pc = property(lambda self: len(self.opcodes) - 1)
+
+    def set_jump_here(self, pc: int):
+        self.opcodes[pc] = f"jump {self.current_pc - pc + 1}"
+
+    def remember(self) -> int:
+        self.opcodes.append("")
+        return self.current_pc
+
 
 class CompiledProgram:
     def __init__(self):
@@ -32,7 +44,3 @@ class CompiledProgram:
 
     def __str__(self):
         return self.prototype.__str__()
-
-
-
-

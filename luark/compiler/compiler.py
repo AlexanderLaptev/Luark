@@ -2,15 +2,12 @@ import sys
 from os import PathLike
 from pathlib import Path
 
-from lark import Lark, ast_utils, Tree
+from lark import Lark, Tree, ast_utils
 
 import luark
-from luark.compiler import syntax_tree
-from luark.compiler.program import CompiledProgram
-
-
-class InternalCompilerError(RuntimeError):
-    pass
+from . import syntax_tree
+from .errors import InternalCompilerError
+from .program import CompiledProgram
 
 
 class Compiler:

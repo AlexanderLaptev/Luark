@@ -3,3 +3,4 @@
 - gload/gstore - global load/store
 - call/return
 - add/sub/mul/div/fdiv/mod/exp
+- test &mdash; skip next opcode if true
