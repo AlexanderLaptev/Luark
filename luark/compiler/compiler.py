@@ -2,40 +2,40 @@ import sys
 from os import PathLike
 from pathlib import Path
 
-from lark import Lark, Tree, ast_utils
+from lark import Lark, ast_utils
 
 import luark
-from . import syntax_tree
-from .errors import InternalCompilerError
-from .program import CompiledProgram
+import luark.compiler.luark_ast
+from luark.compiler.errors import InternalCompilerError
+from luark.compiler.luark_ast import LuarkTransformer, Chunk
+from luark.compiler.program import Program
 
 
 class Compiler:
     def __init__(self, debug: bool = False):
-        with open(Path(luark.__file__).parent / "compiler/grammar.lark") as f:
-            grammar = f.read()
-        self._lark = Lark(grammar, parser="lalr")
-        module = sys.modules[syntax_tree.__name__]
-        self._transformer = ast_utils.create_transformer(module, syntax_tree.ToAst())
         self.debug = debug
+        path = Path(luark.compiler.compiler.__file__).parent / "grammar.lark"
+        with open(path) as file:
+            self.grammar = file.read()
+        self.lark = Lark(grammar=self.grammar, parser="lalr", debug=self.debug)
+        self.transformer = ast_utils.create_transformer(
+            sys.modules[luark.compiler.luark_ast.__name__],
+            LuarkTransformer(),
+        )
 
-    def compile_source(self, source: str):
-        tree: Tree = self._lark.parse(source)
+    def compile_source(self, source: str) -> Program:
+        tree = self.lark.parse(source)
         if self.debug:
             print(tree.pretty())
 
-        tree = self._transformer.transform(tree)
-        chunk = tree.children[-1]
-        if not isinstance(chunk, syntax_tree.Chunk):
-            raise InternalCompilerError("Trying to compile something other than a chunk.")
-        result = CompiledProgram()
-        chunk.evaluate(result)
+        chunk: Chunk = self.transformer.transform(tree)
+        if not isinstance(chunk, Chunk):
+            raise InternalCompilerError("Attempted to compile something other than a chunk.")
+        program: Program = chunk.emit()
 
-        if self.debug:
-            print(result)
-        return result
+        return program
 
-    def compile_file(self, path: str | PathLike[str]):
-        with open(path) as f:
-            src = f.read()
-        self.compile_source(src)
+    def compile_file(self, path: str | PathLike) -> Program:
+        with open(path) as file:
+            source = file.read()
+        return self.compile_source(source)

@@ -1,3 +1,2 @@
-from .errors import InternalCompilerError
-from .compiler import Compiler
-from .program import Prototype, CompiledProgram
+from luark.compiler.compiler import Compiler
+from luark.compiler.program import *
