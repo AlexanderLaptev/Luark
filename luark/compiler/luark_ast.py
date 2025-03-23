@@ -1,5 +1,7 @@
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Callable
 
 from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
@@ -63,6 +65,18 @@ class Block(Ast, AsList):
     def emit(self, state: _State):
         for statement in self.statements:
             statement.emit(state)
+
+
+@dataclass
+class BinaryOpExpression(Expression):
+    opcode: str
+    left: Expression
+    right: Expression
+
+    def evaluate(self, state: _State):
+        self.left.evaluate(state)
+        self.right.evaluate(state)
+        # state.add_opcode(self.opcode)
 
 
 @dataclass
@@ -140,3 +154,46 @@ class LuarkTransformer(Transformer):
         # s = str(s)
         # size = s.find("[", 1) + 1
         # return s[size:-size]
+
+    def concat_expr(self, c):
+        if (isinstance(c[0], String)
+                and isinstance(c[1], String)):
+            return String(c[0].value + c[1].value)
+        else:
+            raise NotImplementedError
+
+    def _bin_num_op_expr(self, c: list, op: str, func: Callable):
+        if (isinstance(c[0], Number)
+                and isinstance(c[1], Number)):
+            return Number(func(c[0].value, c[1].value))
+        else:
+            return BinaryOpExpression(op, *c)
+
+    # TODO: optimize `or true`, `and false`
+
+    def add_expr(self, c):
+        return self._bin_num_op_expr(c, "add", lambda x, y: x + y)
+
+    def sub_expr(self, c):
+        return self._bin_num_op_expr(c, "sub", lambda x, y: x - y)
+
+    def mul_expr(self, c):
+        return self._bin_num_op_expr(c, "mul", lambda x, y: x * y)
+
+    def div_expr(self, c):
+        return self._bin_num_op_expr(c, "div", lambda x, y: x / y)
+
+    def fdiv_expr(self, c):
+        return self._bin_num_op_expr(c, "fdiv", lambda x, y: math.floor(x / y))
+
+    def mod_expr(self, c):
+        return self._bin_num_op_expr(c, "mod", lambda x, y: x % y)
+
+    def exp_expr(self, c):
+        return self._bin_num_op_expr(c, "exp", lambda x, y: x ** y)
+
+    def unary_minus(self, c):
+        if isinstance(c[0], Number):
+            return Number(-c[0].value)
+        else:
+            raise NotImplementedError
