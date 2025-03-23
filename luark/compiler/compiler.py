@@ -32,6 +32,8 @@ class Compiler:
         if not isinstance(chunk, Chunk):
             raise InternalCompilerError("Attempted to compile something other than a chunk.")
         program: Program = chunk.emit()
+        if self.debug:
+            print(program)
 
         return program
 

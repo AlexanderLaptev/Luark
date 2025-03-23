@@ -9,62 +9,118 @@ from lark.visitors import Transformer, Discard
 from luark.compiler.program import Program, Prototype
 
 
-class _State:
-    def __init__(self, program: Program):
-        self.program = program
-        self.proto = program.main_proto
+class _BlockState:
+    def __init__(self):
+        self.locals: dict[str, int] = {}
+
+
+class _ProtoState:
+    def __init__(self, func_name: str = None):
+        self.func_name: str = func_name
+        self.pc: int = 0
+        self.num_locals: int = 0
+        self.blocks: list[_BlockState] = []
+        self.opcodes: list[str] = []
+        self.consts: list[int | float | str] = []
+
+    @property
+    def block(self) -> _BlockState:
+        return self.blocks[-1]
+
+    def get_const_index(self, value) -> int:
+        for i in range(len(self.consts)):
+            if self.consts[i] == value:
+                return i
+
+        index = len(self.consts)
+        self.consts.append(value)
+        return index
+
+    def add_opcode(self, opcode):
+        self.opcodes.append(opcode)
+        self.pc += 1
+
+    def compile(self) -> Prototype:
+        self.add_opcode("return")
+        prototype = Prototype()
+        prototype.func_name = self.func_name
+        prototype.opcodes = self.opcodes
+        prototype.num_locals = self.num_locals
+        prototype.consts = self.consts
+        return prototype
+
+
+class _ProgramState:
+    def __init__(self):
+        self.protos: list[_ProtoState] = []
+
+    @property
+    def proto(self) -> _ProtoState:
+        return self.protos[-1]
+
+    def compile(self) -> Program:
+        program = Program()
+        for proto in self.protos:
+            program.prototypes.append(proto.compile())
+        program.prototypes[0].func_name = "$main"
+        return program
+
+    def add_proto(self, func_name: str = None):
+        proto_state = _ProtoState(func_name)
+        self.protos.append(proto_state)
+        return proto_state
 
 
 class Statement(ABC):
     @abstractmethod
-    def emit(self, state: _State):
-        pass
+    def emit(self, state: _ProgramState):
+        raise NotImplementedError
 
 
 class Expression(ABC):
     @abstractmethod
-    def evaluate(self, state: _State):
-        pass
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
 
 
 @dataclass
 class String(Ast, Expression):
     value: str
 
-    def evaluate(self, state: _State):
-        pass
+    def evaluate(self, state: _ProgramState):
+        index = state.proto.get_const_index(self.value)
+        state.proto.add_opcode(f"push_const {index}")
 
 
 @dataclass
 class Number(Ast, Expression):
     value: int | float
 
-    def evaluate(self, state: _State):
-        pass
+    def evaluate(self, state: _ProgramState):
+        if isinstance(self.value, int):
+            state.proto.add_opcode(f"push_int {self.value}")
+        elif isinstance(self.value, float):
+            frac = self.value - int(self.value)
+            if frac == 0.0:
+                state.proto.add_opcode(f"push_float {int(self.value)}")
+            else:
+                index = state.proto.get_const_index(self.value)
+                state.proto.add_opcode(f"push_const {index}")
 
 
 class NilValue(Expression):
-    def evaluate(self, state: _State):
-        pass
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
 
 
 class TrueValue(Expression):
-    def evaluate(self, state: _State):
-        pass
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
 
 
 class FalseValue(Expression):
-    def evaluate(self, state: _State):
-        pass
-
-
-@dataclass
-class Block(Ast, AsList):
-    statements: list
-
-    def emit(self, state: _State):
-        for statement in self.statements:
-            statement.emit(state)
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
 
 
 @dataclass
@@ -73,22 +129,58 @@ class BinaryOpExpression(Expression):
     left: Expression
     right: Expression
 
-    def evaluate(self, state: _State):
+    def evaluate(self, state: _ProgramState):
         self.left.evaluate(state)
         self.right.evaluate(state)
         # state.add_opcode(self.opcode)
+
+
+class AttribName(Ast):
+    def __init__(self, name: str, attribute: str = None):
+        # TODO!
+        # Only <const> and <close> are allowed by the spec.
+        if attribute:
+            raise NotImplementedError
+
+        self.name = name
+        self.attribute = attribute
+
+
+@dataclass
+class LocalStmt(Ast, Statement):
+    names: list[AttribName]
+    exprs: list[Expression] | None = None
+
+    def emit(self, state: _ProgramState):
+        for expr in self.exprs:
+            expr.evaluate(state)
+        for aname in self.names[::-1]:
+            local_index = state.proto.num_locals
+            state.proto.block.locals[aname.name] = local_index
+            state.proto.add_opcode(f"store_local {local_index}")
+            state.proto.num_locals += 1
+
+
+@dataclass
+class Block(Ast, AsList):
+    statements: list
+
+    def emit(self, state: _ProgramState):
+        state.proto.blocks.append(_BlockState())
+        for statement in self.statements:
+            statement.emit(state)
+        state.proto.blocks.pop()
 
 
 @dataclass
 class Chunk(Ast):
     block: Block
 
-    def emit(self):
-        main_proto = Prototype()
-        program = Program(main_proto)
-        state = _State(program)
-        self.block.emit(state)
-        pass
+    def emit(self) -> Program:
+        program_state = _ProgramState()
+        program_state.add_proto()
+        self.block.emit(program_state)
+        return program_state.compile()
 
 
 # noinspection PyPep8Naming
@@ -104,7 +196,7 @@ class LuarkTransformer(Transformer):
         elif len(num) == 2:
             return Number(int(num[0]) * 10 ** int(num[1]))
         else:
-            raise Exception(f"Illegal decimal integer literal: '{n}'")
+            raise Exception(f"Illegal decimal integer literal: '{n}'")  # TODO: replace exception class
 
     def dec_float(self, f):
         num: str = f[0]
@@ -127,6 +219,12 @@ class LuarkTransformer(Transformer):
 
     def false(self, _):
         return FalseValue()
+
+    def expr_list(self, exprs) -> list[Expression]:
+        return exprs
+
+    def attrib_name_list(self, names) -> list[AttribName]:
+        return names
 
     def ID(self, s):
         return str(s)
