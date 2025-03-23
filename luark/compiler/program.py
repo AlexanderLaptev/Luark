@@ -3,5 +3,6 @@ class Prototype:
 
 
 class Program:
-    def __init__(self):
-        self.prototypes: list[Prototype] = []
+    def __init__(self, main_proto: Prototype):
+        self.prototypes: list[Prototype] = [main_proto]
+        self.main_proto = main_proto
