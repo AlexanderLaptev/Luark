@@ -6,12 +6,14 @@ from typing import Callable
 from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
 
+from luark.compiler.errors import InternalCompilerError
 from luark.compiler.program import Program, Prototype
 
 
 class _BlockState:
     def __init__(self):
         self.locals: dict[str, int] = {}
+        self.aux_locals: list[int] = []
 
 
 class _ProtoState:
@@ -22,6 +24,7 @@ class _ProtoState:
         self.blocks: list[_BlockState] = []
         self.opcodes: list[str] = []
         self.consts: list[int | float | str] = []
+        self.upvalues: list[str] = ["_ENV"]
 
     @property
     def block(self) -> _BlockState:
@@ -34,6 +37,21 @@ class _ProtoState:
 
         index = len(self.consts)
         self.consts.append(value)
+        return index
+
+    def add_aux_local(self) -> int:
+        index = self.num_locals
+        self.block.aux_locals.append(index)
+        self.num_locals += 1
+        return index
+
+    def get_upvalue_index(self, name: str) -> int:
+        for i in range(len(self.upvalues)):
+            if self.upvalues[i] == name:
+                return i
+
+        index = len(self.consts)
+        self.consts.append(name)
         return index
 
     def add_opcode(self, opcode):
@@ -53,6 +71,7 @@ class _ProtoState:
 class _ProgramState:
     def __init__(self):
         self.protos: list[_ProtoState] = []
+        self.stack: list[_ProtoState] = []
 
     @property
     def proto(self) -> _ProtoState:
@@ -65,10 +84,14 @@ class _ProgramState:
         program.prototypes[0].func_name = "$main"
         return program
 
-    def add_proto(self, func_name: str = None):
+    def push_proto(self, func_name: str = None):
         proto_state = _ProtoState(func_name)
         self.protos.append(proto_state)
+        self.stack.append(proto_state)
         return proto_state
+
+    def pop_proto(self):
+        self.stack.pop()
 
 
 class Statement(ABC):
@@ -179,6 +202,109 @@ class LocalStmt(Ast, Statement):
 
 
 @dataclass
+class Var(Ast, Expression):
+    name: str
+
+    def evaluate(self, state: _ProgramState):
+        # 1. check locals
+        # 2. check upvalues
+        # 3. check globals
+        proto = state.proto
+        block = proto.block
+        if self.name in block.locals:
+            index = block.locals[self.name]
+            proto.add_opcode(f"load_local {index}")
+        else:
+            raise NotImplementedError  # TODO!
+
+
+@dataclass
+class DotAccess(Ast, Expression):
+    expression: Expression
+    name: str
+
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
+
+
+class TableAccess(Ast, Expression):
+    table: Expression
+    key: Expression
+
+    def evaluate(self, state: _ProgramState):
+        raise NotImplementedError
+
+
+class AssignStmt(Ast, Statement):
+    def __init__(self, var_list, expr_list=None):
+        self.var_list: list[Var | DotAccess | TableAccess] = var_list
+
+        self.expr_list: list[Expression]
+        if expr_list:
+            nil_count = max(len(var_list) - len(expr_list), 0)
+            expr_list.extend([NilValue.instance] * nil_count)
+            self.expr_list = expr_list
+        else:
+            self.expr_list = [NilValue.instance] * len(var_list)
+
+    def emit(self, state: _ProgramState):
+        proto = state.proto
+        block = proto.block
+
+        aux = {}
+        for var in self.var_list:
+            if isinstance(var, Var):
+                continue
+            elif isinstance(var, DotAccess):
+                index = proto.add_aux_local()
+                var.expression.evaluate(state)
+                proto.add_opcode(f"local_store {index}")
+                aux[var] = index
+            elif isinstance(var, TableAccess):
+                table_index = proto.add_aux_local()
+                key_index = proto.add_aux_local()
+                var.table.evaluate(state)
+                proto.add_opcode(f"store_local {table_index}")
+                var.key.evaluate(state)
+                proto.add_opcode(f"store_local {key_index}")
+                aux[var] = (table_index, key_index)
+            else:
+                raise InternalCompilerError("Unsupported assignment.")
+
+        for expr in self.expr_list:
+            expr.evaluate(state)
+
+        for var in self.var_list[::-1]:
+            if isinstance(var, Var):
+                # local, same block
+                # local, outer block, same function
+                # local, enclosing function -> upvalue
+                # global (_ENV)
+                self.assign_var(var, state)
+
+    def assign_var(self, var, state: _ProgramState):
+        my_proto = state.proto
+
+        found = False
+        for block in my_proto.blocks[::-1]:
+            if var.name in block.locals:
+                found = True
+                env_index = block.locals[var.name]
+                my_proto.add_opcode(f"store_local {env_index}")
+                break
+        if found:
+            return
+
+        # TODO: upvalues
+
+        env_index = my_proto.get_upvalue_index("_ENV")
+        name_index = my_proto.get_const_index(var.name)
+        my_proto.add_opcode(f"get_upvalue {env_index}")
+        my_proto.add_opcode(f"push_const {name_index}")
+        my_proto.add_opcode("set_table")
+
+
+@dataclass
 class Block(Ast, AsList):
     statements: list
 
@@ -195,8 +321,9 @@ class Chunk(Ast):
 
     def emit(self) -> Program:
         program_state = _ProgramState()
-        program_state.add_proto()
+        program_state.push_proto()
         self.block.emit(program_state)
+        program_state.pop_proto()
         return program_state.compile()
 
 
@@ -239,6 +366,9 @@ class LuarkTransformer(Transformer):
 
     def expr_list(self, exprs) -> list[Expression]:
         return exprs
+
+    def var_list(self, varz) -> list[Var | DotAccess | TableAccess]:
+        return varz
 
     def attrib_name_list(self, names) -> list[AttribName]:
         return names
