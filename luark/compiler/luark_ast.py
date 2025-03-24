@@ -39,11 +39,14 @@ class _ProtoState:
         self.consts.append(value)
         return index
 
-    def add_aux_local(self) -> int:
-        index = self.num_locals
-        self.block.aux_locals.append(index)
-        self.num_locals += 1
-        return index
+    def get_local_index(self, name: str) -> int:
+        if name in self.block.locals:
+            return self.block.locals[name]
+        else:
+            index = self.num_locals
+            self.num_locals += 1
+            self.block.locals[name] = index
+            return index
 
     def get_upvalue_index(self, name: str) -> int:
         for i in range(len(self.upvalues)):
@@ -53,6 +56,26 @@ class _ProtoState:
         index = len(self.consts)
         self.consts.append(name)
         return index
+
+    def add_aux_local(self) -> int:
+        index = self.num_locals
+        self.block.aux_locals.append(index)
+        self.num_locals += 1
+        return index
+
+    def load_global(self, name: str):
+        env_index = self.get_upvalue_index("_ENV")
+        self.add_opcode(f"get_upvalue {env_index}")
+        name_index = self.get_const_index(name)
+        self.add_opcode(f"push_const {name_index}")
+        self.add_opcode(f"get_table")
+
+    def store_global(self, name: str):
+        env_index = self.get_upvalue_index("_ENV")
+        self.add_opcode(f"get_upvalue {env_index}")
+        name_index = self.get_const_index(name)
+        self.add_opcode(f"push_const {name_index}")
+        self.add_opcode(f"set_table")
 
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
@@ -67,6 +90,15 @@ class _ProtoState:
         prototype.consts = self.consts
         return prototype
 
+    def get_local(self, own_name: str) -> int:
+        if own_name in self.block.locals:
+            return self.block.locals[own_name]
+        else:
+            index = self.num_locals
+            self.num_locals += 1
+            self.block.locals[own_name] = index
+            return index
+
 
 class _ProgramState:
     def __init__(self):
@@ -77,13 +109,6 @@ class _ProgramState:
     def proto(self) -> _ProtoState:
         return self.stack[-1]
 
-    def compile(self) -> Program:
-        program = Program()
-        for proto in self.protos:
-            program.prototypes.append(proto.compile())
-        program.prototypes[0].func_name = "$main"
-        return program
-
     def push_proto(self, func_name: str = None) -> int:
         proto_state = _ProtoState(func_name)
         index = len(self.protos)
@@ -93,6 +118,13 @@ class _ProgramState:
 
     def pop_proto(self):
         self.stack.pop()
+
+    def compile(self) -> Program:
+        program = Program()
+        for proto in self.protos:
+            program.prototypes.append(proto.compile())
+        program.prototypes[0].func_name = "$main"
+        return program
 
 
 class Statement(ABC):
@@ -248,6 +280,7 @@ class AssignStmt(Ast, Statement):
         else:
             self.expr_list = [NilValue.instance] * len(var_list)
 
+    # TODO!
     def emit(self, state: _ProgramState):
         proto = state.proto
 
@@ -289,19 +322,14 @@ class AssignStmt(Ast, Statement):
         for block in my_proto.blocks[::-1]:
             if var.name in block.locals:
                 found = True
-                env_index = block.locals[var.name]
-                my_proto.add_opcode(f"store_local {env_index}")
+                index = block.locals[var.name]
+                my_proto.add_opcode(f"store_local {index}")
                 break
         if found:
             return
 
         # TODO: upvalues
-
-        env_index = my_proto.get_upvalue_index("_ENV")
-        name_index = my_proto.get_const_index(var.name)
-        my_proto.add_opcode(f"get_upvalue {env_index}")
-        my_proto.add_opcode(f"push_const {name_index}")
-        my_proto.add_opcode("set_table")
+        my_proto.store_global(var.name)
 
 
 @dataclass
@@ -343,34 +371,38 @@ class FuncBody(Ast, AsList):
 
 @dataclass
 class FuncDefStmt(Ast, Statement):
-    name: FuncName | MethodName
+    name: FuncName | MethodName | str
     body: FuncBody
 
     def emit(self, state: _ProgramState):
         if isinstance(self.name, MethodName):
             raise NotImplementedError
-        if len(self.name.names) != 1:
+        if isinstance(self.name, FuncName) and len(self.name.names) != 1:
             raise NotImplementedError
 
-        my_proto = state.proto
-
         # TODO: implement params
-        own_name = self.name.names[-1]
+        own_name = self.name.names[-1] if isinstance(self.name, FuncName) else self.name
         index = state.push_proto(own_name)
         self.body.block.emit(state)
         state.pop_proto()
+        self.assign(state, own_name, index)
 
+    def assign(self, state: _ProgramState, own_name: str, index: int):
+        my_proto = state.proto
         my_proto.add_opcode(f"closure {index}")
         env_index = my_proto.get_upvalue_index("_ENV")
         my_proto.add_opcode(f"get_upvalue {env_index}")
         name_index = my_proto.get_const_index(own_name)
-        my_proto.add_opcode(f"push_const {own_name}")
+        my_proto.add_opcode(f"push_const {name_index}")
         my_proto.add_opcode("set_table")
 
 
 class LocalFuncDef(FuncDefStmt):
-    def emit(self, state: _ProgramState):
-        raise NotImplementedError  # TODO!
+    def assign(self, state: _ProgramState, own_name: str, index: int):
+        my_proto = state.proto
+        my_proto.add_opcode(f"closure {index}")
+        local = my_proto.get_local(own_name)
+        my_proto.add_opcode(f"store_local {local}")
 
 
 @dataclass
