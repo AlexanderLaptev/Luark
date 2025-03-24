@@ -110,17 +110,26 @@ class Number(Ast, Expression):
 
 class NilValue(Expression):
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        state.proto.add_opcode("push_nil")
+
+
+NilValue.instance = NilValue()
 
 
 class TrueValue(Expression):
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        state.proto.add_opcode("push_true")
+
+
+TrueValue.instance = TrueValue()
 
 
 class FalseValue(Expression):
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        state.proto.add_opcode("push_false")
+
+
+FalseValue.instance = FalseValue()
 
 
 @dataclass
@@ -132,7 +141,7 @@ class BinaryOpExpression(Expression):
     def evaluate(self, state: _ProgramState):
         self.left.evaluate(state)
         self.right.evaluate(state)
-        # state.add_opcode(self.opcode)
+        state.proto.add_opcode(self.opcode)
 
 
 class AttribName(Ast):
@@ -148,8 +157,16 @@ class AttribName(Ast):
 
 @dataclass
 class LocalStmt(Ast, Statement):
-    names: list[AttribName]
-    exprs: list[Expression] | None = None
+    def __init__(self, names: list[AttribName], exprs: list[Expression] = None):
+        self.names: list[AttribName] = names
+
+        self.exprs: list[Expression]
+        if exprs:
+            nil_count = max(len(names) - len(exprs), 0)
+            exprs.extend([NilValue.instance] * nil_count)
+            self.exprs = exprs
+        else:
+            self.exprs = [NilValue.instance] * len(names)
 
     def emit(self, state: _ProgramState):
         for expr in self.exprs:
@@ -212,13 +229,13 @@ class LuarkTransformer(Transformer):
         return Discard
 
     def nil(self, _):
-        return NilValue()
+        return NilValue.instance
 
     def true(self, _):
-        return TrueValue()
+        return TrueValue.instance
 
     def false(self, _):
-        return FalseValue()
+        return FalseValue.instance
 
     def expr_list(self, exprs) -> list[Expression]:
         return exprs

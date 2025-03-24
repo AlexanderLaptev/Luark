@@ -6,13 +6,13 @@ class Prototype:
         self.num_locals: int = 0
 
     def __str__(self) -> str:
-        out = [f"locals: {self.num_locals}", "consts:"]
+        out = [f"\tlocals: {self.num_locals}", "\tconsts:"]
         for i, const in enumerate(self.consts):
             value = const if not isinstance(const, str) else f'"{const}"'
-            out.append(f"\t{i}\t\t{value}")
-        out.append("opcodes:")
+            out.append(f"\t\t{i}\t\t{value}")
+        out.append("\topcodes:")
         for i, opcode in enumerate(self.opcodes):
-            out.append(f"\t{i}\t\t{opcode}")
+            out.append(f"\t\t{i}\t\t{opcode}")
         return "\n".join(out)
 
 
@@ -23,7 +23,7 @@ class Program:
 
     def __str__(self) -> str:
         out: list[str] = []
-        for proto in self.prototypes:
-            out.append(f"function {proto.func_name}():")
+        for i, proto in enumerate(self.prototypes):
+            out.append(f"#{i} function {proto.func_name}():")
             out.append(str(proto))
         return "\n".join(out)

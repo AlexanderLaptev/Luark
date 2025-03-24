@@ -1,1 +1,3 @@
-local x, y = 1, 2
+local x
+local y
+local a, b = 1, 2
