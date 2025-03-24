@@ -75,7 +75,7 @@ class _ProgramState:
 
     @property
     def proto(self) -> _ProtoState:
-        return self.protos[-1]
+        return self.stack[-1]
 
     def compile(self) -> Program:
         program = Program()
@@ -84,11 +84,12 @@ class _ProgramState:
         program.prototypes[0].func_name = "$main"
         return program
 
-    def push_proto(self, func_name: str = None):
+    def push_proto(self, func_name: str = None) -> int:
         proto_state = _ProtoState(func_name)
+        index = len(self.protos)
         self.protos.append(proto_state)
         self.stack.append(proto_state)
-        return proto_state
+        return index
 
     def pop_proto(self):
         self.stack.pop()
@@ -249,7 +250,6 @@ class AssignStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
-        block = proto.block
 
         aux = {}
         for var in self.var_list:
@@ -313,6 +313,64 @@ class Block(Ast, AsList):
         for statement in self.statements:
             statement.emit(state)
         state.proto.blocks.pop()
+
+
+@dataclass
+class FuncName(Ast, AsList):
+    names: list[str]
+
+
+class MethodName(Ast, AsList):
+    def __init__(self, children: list[str]):
+        self.names: list[str] = children[:-1]
+        self.method_name: str = children[-1]
+
+
+class Varargs(Ast):
+    pass
+
+
+class VarargList(Ast, AsList):
+    def __init__(self, children):
+        self.exprs: list[Expression] = children[:-1]
+
+
+class FuncBody(Ast, AsList):
+    def __init__(self, children):
+        self.params: list[Expression] | VarargList | Varargs = children[:-1]
+        self.block: Block = children[-1]
+
+
+@dataclass
+class FuncDefStmt(Ast, Statement):
+    name: FuncName | MethodName
+    body: FuncBody
+
+    def emit(self, state: _ProgramState):
+        if isinstance(self.name, MethodName):
+            raise NotImplementedError
+        if len(self.name.names) != 1:
+            raise NotImplementedError
+
+        my_proto = state.proto
+
+        # TODO: implement params
+        own_name = self.name.names[-1]
+        index = state.push_proto(own_name)
+        self.body.block.emit(state)
+        state.pop_proto()
+
+        my_proto.add_opcode(f"closure {index}")
+        env_index = my_proto.get_upvalue_index("_ENV")
+        my_proto.add_opcode(f"get_upvalue {env_index}")
+        name_index = my_proto.get_const_index(own_name)
+        my_proto.add_opcode(f"push_const {own_name}")
+        my_proto.add_opcode("set_table")
+
+
+class LocalFuncDef(FuncDefStmt):
+    def emit(self, state: _ProgramState):
+        raise NotImplementedError  # TODO!
 
 
 @dataclass
