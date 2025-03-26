@@ -54,7 +54,7 @@ class _ProtoState:
                 return i
 
         index = len(self.consts)
-        self.consts.append(name)
+        self.upvalues.append(name)
         return index
 
     def add_aux_local(self) -> int:
@@ -88,6 +88,7 @@ class _ProtoState:
         prototype.opcodes = self.opcodes
         prototype.num_locals = self.num_locals
         prototype.consts = self.consts
+        prototype.upvalues = self.upvalues
         return prototype
 
     def get_local(self, own_name: str) -> int:
@@ -118,6 +119,32 @@ class _ProgramState:
 
     def pop_proto(self):
         self.stack.pop()
+
+    def assign(self, name: str):
+        current_proto = self.proto
+        visited_protos = []  # these protos may need an upvalue passed down to them
+        for proto in reversed(self.stack):
+            visited_protos.append(proto)
+            upvalue = self.proto != proto  # upvalues are locals from an enclosing function
+            for block in reversed(proto.blocks):
+                if name in block.locals:
+                    if upvalue:
+                        # A local variable in an outer function. Create an
+                        # upvalue and drill it through the proto stack.
+                        for vp in visited_protos:
+                            vp.get_upvalue_index(name)
+                        upvalue_index = current_proto.get_upvalue_index(name)
+                        current_proto.add_opcode(f"store_upvalue {upvalue_index}")
+                    else:
+                        # A local variable in the same function.
+                        index = block.locals[name]
+                        current_proto.add_opcode(f"store_local {index}")
+
+                    return
+
+        # If we could not find the local either in the same function or
+        # in any of the enclosing ones, treat the variable as a global.
+        current_proto.store_global(name)
 
     def compile(self) -> Program:
         program = Program()
@@ -313,7 +340,7 @@ class AssignStmt(Ast, Statement):
                 # local, outer block, same function
                 # local, enclosing function -> upvalue
                 # global (_ENV)
-                self.assign_var(var, state)
+                state.assign(var.name)
 
     def assign_var(self, var, state: _ProgramState):
         my_proto = state.proto

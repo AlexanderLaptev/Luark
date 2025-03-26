@@ -4,9 +4,13 @@ class Prototype:
         self.opcodes: list[str] = []
         self.consts: list[int | float | str] = []
         self.num_locals: int = 0
+        self.upvalues: list[str] = []
 
     def __str__(self) -> str:
-        out = [f"\tlocals: {self.num_locals}", "\tconsts:"]
+        out = [f"\tlocals: {self.num_locals}", "\tupvalues:"]
+        for i, upvalue in enumerate(self.upvalues):
+            out.append(f"\t\t{i}\t\t{upvalue}")
+        out.append("\tconsts:")
         for i, const in enumerate(self.consts):
             value = const if not isinstance(const, str) else f'"{const}"'
             out.append(f"\t\t{i}\t\t{value}")
