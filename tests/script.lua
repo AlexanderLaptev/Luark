@@ -1,3 +1,5 @@
-local x = a
-x = a[i]
-x = a.i
+function foo()
+    local x = a * b
+    x = x * x
+    return a, x
+end

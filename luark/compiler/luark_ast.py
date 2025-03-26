@@ -426,6 +426,14 @@ class LocalFuncDef(FuncDefStmt):
         my_proto.add_opcode(f"store_local {local}")
 
 
+class ReturnStmt(Ast, Statement):
+    def __init__(self, exprs: list[Expression] = None):
+        self.exprs: list[Expression] | None = exprs
+
+    def emit(self, state: _ProgramState):
+        state.proto.add_opcode("return")
+
+
 @dataclass
 class Chunk(Ast):
     block: Block

@@ -86,7 +86,7 @@ expr_list: expr ("," expr)*
     | local_stmt
     | "::" ID "::" -> label
     | "goto" ID -> goto_stmt
-?return_stmt: "return" expr_list? ";"?
+return_stmt: "return" expr_list? ";"?
 
 assign_stmt: var_list "=" expr_list
 local_stmt: "local" attrib_name_list ("=" expr_list)?
