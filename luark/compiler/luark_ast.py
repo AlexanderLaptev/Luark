@@ -268,7 +268,11 @@ class DotAccess(Ast, Expression):
     name: str
 
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        proto = state.proto
+        self.expression.evaluate(state)
+        index = proto.get_const_index(self.name)
+        proto.add_opcode(f"push_const {index}")
+        proto.add_opcode("get_table")
 
 
 @dataclass
@@ -277,7 +281,10 @@ class TableAccess(Ast, Expression):
     key: Expression
 
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        proto = state.proto
+        self.table.evaluate(state)
+        self.key.evaluate(state)
+        proto.add_opcode("get_table")
 
 
 class AssignStmt(Ast, Statement):
