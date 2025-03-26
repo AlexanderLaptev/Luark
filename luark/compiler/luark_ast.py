@@ -13,48 +13,52 @@ from luark.compiler.program import Program, Prototype
 class _BlockState:
     def __init__(self):
         self.locals: dict[str, int] = {}
-        self.aux_locals: list[int] = []
+        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler
+
+
+ConstType = int | float | str
 
 
 class _ProtoState:
     def __init__(self, func_name: str = None):
         self.func_name: str = func_name
         self.pc: int = 0
-        self.num_locals: int = 0
         self.blocks: list[_BlockState] = []
+
+        self.num_upvalues: int = 1
+        self.num_consts: int = 0
+        self.num_locals: int = 0
+
+        self.upvalues: dict[str, int] = {"_ENV": 0}  # TODO: pass _ENV only when needed
+        self.consts: dict[ConstType, int] = {}
         self.opcodes: list[str] = []
-        self.consts: list[int | float | str] = []
-        self.upvalues: list[str] = ["_ENV"]
 
     @property
     def block(self) -> _BlockState:
         return self.blocks[-1]
 
-    def get_const_index(self, value) -> int:
-        for i in range(len(self.consts)):
-            if self.consts[i] == value:
-                return i
-
-        index = len(self.consts)
-        self.consts.append(value)
+    def get_upvalue_index(self, name: str) -> int:
+        if name in self.upvalues:
+            return self.upvalues[name]
+        index = self.num_upvalues
+        self.num_upvalues += 1
+        self.upvalues[name] = index
         return index
 
-    def get_local_index(self, name: str) -> int:
-        if name in self.block.locals:
-            return self.block.locals[name]
-        else:
-            index = self.num_locals
-            self.num_locals += 1
-            self.block.locals[name] = index
-            return index
+    def get_const_index(self, value: ConstType) -> int:
+        if value in self.consts:
+            return self.consts[value]
+        index = self.num_consts
+        self.num_consts += 1
+        self.consts[value] = index
+        return index
 
-    def get_upvalue_index(self, name: str) -> int:
-        for i in range(len(self.upvalues)):
-            if self.upvalues[i] == name:
-                return i
-
-        index = len(self.consts)
-        self.upvalues.append(name)
+    def get_local_index(self, own_name: str) -> int:
+        if own_name in self.block.locals:
+            return self.block.locals[own_name]
+        index = self.num_locals
+        self.num_locals += 1
+        self.block.locals[own_name] = index
         return index
 
     def add_aux_local(self) -> int:
@@ -76,15 +80,6 @@ class _ProtoState:
         prototype.consts = self.consts
         prototype.upvalues = self.upvalues
         return prototype
-
-    def get_local(self, own_name: str) -> int:
-        if own_name in self.block.locals:
-            return self.block.locals[own_name]
-        else:
-            index = self.num_locals
-            self.num_locals += 1
-            self.block.locals[own_name] = index
-            return index
 
 
 class _ProgramState:
@@ -397,7 +392,7 @@ class LocalFuncDef(FuncDefStmt):
     def assign(self, state: _ProgramState, own_name: str, index: int):
         my_proto = state.proto
         my_proto.add_opcode(f"closure {index}")
-        local = my_proto.get_local(own_name)
+        local = my_proto.get_local_index(own_name)
         my_proto.add_opcode(f"store_local {local}")
 
 
