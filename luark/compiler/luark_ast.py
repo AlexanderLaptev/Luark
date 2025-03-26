@@ -63,20 +63,6 @@ class _ProtoState:
         self.num_locals += 1
         return index
 
-    def load_global(self, name: str):
-        env_index = self.get_upvalue_index("_ENV")
-        self.add_opcode(f"get_upvalue {env_index}")
-        name_index = self.get_const_index(name)
-        self.add_opcode(f"push_const {name_index}")
-        self.add_opcode(f"get_table")
-
-    def store_global(self, name: str):
-        env_index = self.get_upvalue_index("_ENV")
-        self.add_opcode(f"get_upvalue {env_index}")
-        name_index = self.get_const_index(name)
-        self.add_opcode(f"push_const {name_index}")
-        self.add_opcode(f"set_table")
-
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
         self.pc += 1
@@ -121,6 +107,12 @@ class _ProgramState:
         self.stack.pop()
 
     def assign(self, name: str):
+        self._resolve(name, False)
+
+    def read(self, name: str):
+        self._resolve(name, True)
+
+    def _resolve(self, name: str, get: bool):
         current_proto = self.proto
         visited_protos = []  # these protos may need an upvalue passed down to them
         for proto in reversed(self.stack):
@@ -134,17 +126,23 @@ class _ProgramState:
                         for vp in visited_protos:
                             vp.get_upvalue_index(name)
                         upvalue_index = current_proto.get_upvalue_index(name)
-                        current_proto.add_opcode(f"store_upvalue {upvalue_index}")
+                        opcode = "load_upvalue" if get else "store_upvalue"
+                        current_proto.add_opcode(f"{opcode} {upvalue_index}")
                     else:
                         # A local variable in the same function.
                         index = block.locals[name]
-                        current_proto.add_opcode(f"store_local {index}")
+                        opcode = "load_local" if get else "store_local"
+                        current_proto.add_opcode(f"{opcode} {index}")
 
                     return
 
         # If we could not find the local either in the same function or
         # in any of the enclosing ones, treat the variable as a global.
-        current_proto.store_global(name)
+        env_index = current_proto.get_upvalue_index("_ENV")
+        name_index = current_proto.get_const_index(name)
+        current_proto.add_opcode(f"get_upvalue {env_index}")
+        current_proto.add_opcode(f"push_const {name_index}")
+        current_proto.add_opcode("get_table" if get else "set_table")
 
     def compile(self) -> Program:
         program = Program()
@@ -266,16 +264,7 @@ class Var(Ast, Expression):
     name: str
 
     def evaluate(self, state: _ProgramState):
-        # 1. check locals
-        # 2. check upvalues
-        # 3. check globals
-        proto = state.proto
-        block = proto.block
-        if self.name in block.locals:
-            index = block.locals[self.name]
-            proto.add_opcode(f"load_local {index}")
-        else:
-            raise NotImplementedError  # TODO!
+        state.read(self.name)
 
 
 @dataclass
@@ -336,27 +325,7 @@ class AssignStmt(Ast, Statement):
 
         for var in self.var_list[::-1]:
             if isinstance(var, Var):
-                # local, same block
-                # local, outer block, same function
-                # local, enclosing function -> upvalue
-                # global (_ENV)
                 state.assign(var.name)
-
-    def assign_var(self, var, state: _ProgramState):
-        my_proto = state.proto
-
-        found = False
-        for block in my_proto.blocks[::-1]:
-            if var.name in block.locals:
-                found = True
-                index = block.locals[var.name]
-                my_proto.add_opcode(f"store_local {index}")
-                break
-        if found:
-            return
-
-        # TODO: upvalues
-        my_proto.store_global(var.name)
 
 
 @dataclass
