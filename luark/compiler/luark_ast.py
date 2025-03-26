@@ -271,6 +271,7 @@ class DotAccess(Ast, Expression):
         raise NotImplementedError
 
 
+@dataclass
 class TableAccess(Ast, Expression):
     table: Expression
     key: Expression
@@ -295,7 +296,7 @@ class AssignStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         proto = state.proto
 
-        aux = {}
+        aux = []
         for var in self.var_list:
             if isinstance(var, Var):
                 continue
@@ -303,24 +304,46 @@ class AssignStmt(Ast, Statement):
                 index = proto.add_aux_local()
                 var.expression.evaluate(state)
                 proto.add_opcode(f"local_store {index}")
-                aux[var] = index
+                aux.append(index)
             elif isinstance(var, TableAccess):
                 table_index = proto.add_aux_local()
                 key_index = proto.add_aux_local()
+
                 var.table.evaluate(state)
                 proto.add_opcode(f"store_local {table_index}")
                 var.key.evaluate(state)
                 proto.add_opcode(f"store_local {key_index}")
-                aux[var] = (table_index, key_index)
+
+                aux.append(table_index)
+                aux.append(key_index)
             else:
                 raise InternalCompilerError("Unsupported assignment.")
 
         for expr in self.expr_list:
             expr.evaluate(state)
 
+        aux_index = len(aux) - 1
         for var in self.var_list[::-1]:
             if isinstance(var, Var):
                 state.assign(var.name)
+            elif isinstance(var, DotAccess):
+                local_index: int = aux[aux_index]
+                aux_index -= 1
+
+                const_index: int = proto.get_const_index(var.name)
+                proto.add_opcode(f"load_local {local_index}")
+                proto.add_opcode(f"push_const {const_index}")
+                proto.add_opcode("set_table")
+            elif isinstance(var, TableAccess):
+                key_index = aux[aux_index]
+                aux_index -= 1
+                table_index = aux[aux_index]
+                aux_index -= 1
+
+                proto.add_opcode(f"load_local {table_index}")
+                proto.add_opcode(f"load_local {key_index}")
+                proto.add_opcode("set_table")
+            # not adding else because we already did above
 
 
 @dataclass
