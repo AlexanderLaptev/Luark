@@ -21,7 +21,10 @@ ConstType = int | float | str
 
 
 class _ProtoState:
-    def __init__(self, func_name: str = None):
+    def __init__(self, func_name: str = None, ):
+        self.fixed_params: int = 0
+        self.is_variadic: bool = False
+
         self.func_name: str = func_name
         self.pc: int = 0
         self.blocks: list[_BlockState] = []
@@ -386,14 +389,62 @@ class Varargs(Ast):
 
 class VarargList(Ast, AsList):
     def __init__(self, children):
-        self.exprs: list[Expression] = children[:-1]
+        self.names: list[str] = children
 
 
-# TODO: generate code in FuncBody directly
-class FuncBody(Ast, AsList):
-    def __init__(self, children):
-        self.params: list[Expression] | VarargList | Varargs = children[:-1]
-        self.block: Block = children[-1]
+class FuncBody(Ast):
+    def __init__(self, params, block):
+        self.params: list[str] | VarargList | Varargs = params
+        self.block: Block = block
+
+
+class FuncDef(Ast, Expression):
+    def __init__(self, body: FuncBody, name: str = None):
+        self.body: FuncBody = body
+        self.name: str | None = name
+
+    # TODO: define vararg behavior
+    def evaluate(self, state: _ProgramState):
+        if not self.name:
+            my_number = state.num_lambdas
+            state.num_lambdas += 1
+            self.name = f"$lambda#{my_number}"
+
+        proto_index = state.push_proto(self.name)
+        proto = state.proto
+        block = _BlockState()
+        proto.blocks.append(block)
+
+        body = self.body.block
+        params = self.body.params
+        fixed_params: int = 0
+        is_variadic: bool = False
+
+        if isinstance(params, list) or (is_variadic := isinstance(params, VarargList)):
+            if is_variadic:
+                params = params.names
+
+            fixed_params = len(params)
+            for param in reversed(params):
+                local_index = proto.get_local_index(param)
+                proto.add_opcode(f"local_store {local_index}")
+
+            if is_variadic:
+                proto.add_opcode("pack_varargs")
+        elif isinstance(params, Varargs):
+            is_variadic = True
+            proto.add_opcode("pack_varargs")
+        else:
+            raise InternalCompilerError("Illegal function definition: illegal type of parameters.")
+        proto.fixed_params = fixed_params
+        proto.is_variadic = is_variadic
+
+        for statement in body.statements:
+            statement.emit(state)
+
+        proto.blocks.pop()
+        state.pop_proto()
+        state.proto.add_opcode(f"closure {proto_index}")
 
 
 @dataclass
@@ -402,21 +453,18 @@ class FuncDefStmt(Ast, Statement):
     body: FuncBody
 
     def emit(self, state: _ProgramState):
-        if isinstance(self.name, MethodName):
+        if isinstance(self.name, MethodName):  # TODO
             raise NotImplementedError
         if isinstance(self.name, FuncName) and len(self.name.names) != 1:
             raise NotImplementedError
 
-        # TODO: implement params
         own_name = self.name.names[-1] if isinstance(self.name, FuncName) else self.name
-        index = state.push_proto(own_name)
-        self.body.block.emit(state)
-        state.pop_proto()
-        self.assign(state, own_name, index)
+        func_def = FuncDef(self.body, own_name)
+        func_def.evaluate(state)
+        self.assign(state, own_name)
 
-    def assign(self, state: _ProgramState, own_name: str, index: int):
+    def assign(self, state: _ProgramState, own_name: str):
         my_proto = state.proto
-        my_proto.add_opcode(f"closure {index}")
         env_index = my_proto.get_upvalue_index("_ENV")
         my_proto.add_opcode(f"get_upvalue {env_index}")
         name_index = my_proto.get_const_index(own_name)
@@ -424,25 +472,11 @@ class FuncDefStmt(Ast, Statement):
         my_proto.add_opcode("set_table")
 
 
-class LocalFuncDef(FuncDefStmt):
-    def assign(self, state: _ProgramState, own_name: str, index: int):
+class LocalFuncDefStmt(FuncDefStmt):
+    def assign(self, state: _ProgramState, own_name: str):
         my_proto = state.proto
-        my_proto.add_opcode(f"closure {index}")
         local = my_proto.get_local_index(own_name)
         my_proto.add_opcode(f"store_local {local}")
-
-
-@dataclass
-class FuncDef(Ast, Expression):
-    body: FuncBody
-
-    def evaluate(self, state: _ProgramState):
-        num = state.num_lambdas
-        state.num_lambdas += 1
-        index = state.push_proto(f"$lambda#{num}")
-        self.body.block.emit(state)
-        state.pop_proto()
-        state.proto.add_opcode(f"closure {index}")
 
 
 class ReturnStmt(Ast, Statement):
@@ -464,7 +498,16 @@ class FuncCall(Ast, Statement, Expression):
 
     def evaluate(self, state: _ProgramState):
         self.primary.evaluate(state)
-        # TODO: arguments
+
+        if isinstance(self.params, list):
+            expr: Expression
+            for expr in self.params:
+                expr.evaluate(state)
+        elif isinstance(self.params, String):
+            self.params.evaluate(state)
+        else:
+            raise InternalCompilerError("Illegal function call: illegal type of parameters.")
+
         state.proto.add_opcode("call")
 
 
@@ -636,6 +679,9 @@ class LuarkTransformer(Transformer):
 
     def var_list(self, varz) -> list[Var | DotAccess | TableAccess]:
         return varz
+
+    def name_list(self, names) -> list[str]:
+        return names
 
     def attrib_name_list(self, names) -> list[AttribName]:
         return names
