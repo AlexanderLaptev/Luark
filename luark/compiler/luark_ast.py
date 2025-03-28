@@ -87,6 +87,8 @@ class _ProgramState:
         self.protos: list[_ProtoState] = []
         self.stack: list[_ProtoState] = []
 
+        self.num_lambdas: int = 0
+
     @property
     def proto(self) -> _ProtoState:
         return self.stack[-1]
@@ -424,6 +426,19 @@ class LocalFuncDef(FuncDefStmt):
         my_proto.add_opcode(f"closure {index}")
         local = my_proto.get_local_index(own_name)
         my_proto.add_opcode(f"store_local {local}")
+
+
+@dataclass
+class FuncDef(Ast, Expression):
+    body: FuncBody
+
+    def evaluate(self, state: _ProgramState):
+        num = state.num_lambdas
+        state.num_lambdas += 1
+        index = state.push_proto(f"$lambda#{num}")
+        self.body.block.emit(state)
+        state.pop_proto()
+        state.proto.add_opcode(f"closure {index}")
 
 
 class ReturnStmt(Ast, Statement):

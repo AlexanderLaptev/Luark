@@ -1,5 +1,1 @@
-function foo()
-    local x = a * b
-    x = x * x
-    return a, x
-end
+a = function () local x = 3 end
