@@ -1,3 +1,1 @@
-function foo()
-    return 1
-end
+local x = {1, 2, 3}

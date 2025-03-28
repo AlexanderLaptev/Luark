@@ -542,9 +542,60 @@ class ReturnStmt(Ast, Statement):
 
 
 @dataclass
+class ExprField(Ast):
+    key: Expression
+    value: Expression
+
+
+@dataclass
+class NameField(Ast):
+    name: str
+    value: Expression
+
+
+Field = Expression | ExprField | NameField
+
+
+@dataclass
+class TableConstructor(Ast, AsList, Expression):
+    fields: list[Field] | None = None
+
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
+        proto = state.proto
+        proto.add_opcode("create_table")
+        table_local = proto.add_aux_local()
+        proto.add_opcode(f"store_local {table_local}")
+
+        if self.fields:
+            for i, field in enumerate(self.fields):
+                if isinstance(field, ExprField):
+                    field.value.evaluate(state)
+                    proto.add_opcode(f"load_local {table_local}")
+                    field.key.evaluate(state)
+                    proto.add_opcode("set_table")
+                elif isinstance(field, NameField):
+                    field.value.evaluate(state)
+                    proto.add_opcode(f"load_local {table_local}")
+                    const_index = proto.get_const_index(field.name)
+                    proto.add_opcode(f"push_const {const_index}")
+                elif isinstance(field, MultiresExpression):
+                    size = 0 if i == len(self.fields) - 1 else 2
+                    eval_multires_expr(state, field, size)
+                    proto.add_opcode(f"load_local {table_local}")
+                    if size > 0:
+                        proto.add_opcode("store_list 2")
+                    else:
+                        proto.add_opcode("store_list 0")
+                elif isinstance(field, Expression):
+                    field.evaluate(state)
+                    proto.add_opcode(f"load_local {table_local}")
+                    proto.add_opcode("store_list 2")
+
+
+@dataclass
 class FuncCall(Ast, Statement, Expression, MultiresExpression):
     primary: Expression
-    params: list[Expression] | String = None  # TODO: table constructors
+    params: list[Expression] | TableConstructor | String = None
 
     def emit(self, state: _ProgramState):
         self.evaluate(state, 0)
@@ -568,6 +619,7 @@ class FuncCall(Ast, Statement, Expression, MultiresExpression):
             elif isinstance(self.params, String):
                 param_count = 1
                 self.params.evaluate(state)
+            # TODO: table constructors
             else:
                 raise InternalCompilerError("Illegal function call: illegal type of parameters.")
 
