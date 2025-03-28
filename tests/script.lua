@@ -1,1 +1,1 @@
-local x, y, z = foo(), foo()
+x, y, z = foo(), foo()

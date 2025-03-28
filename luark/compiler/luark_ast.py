@@ -10,6 +10,8 @@ from luark.compiler.errors import InternalCompilerError
 from luark.compiler.program import Program, Prototype
 
 
+# TODO: refactor expression types
+
 class _BlockState:
     def __init__(self):
         self.locals: dict[str, int] = {}
@@ -169,6 +171,44 @@ class MultiresExpression:
     pass
 
 
+def eval_multires_expr(
+        state: _ProgramState,
+        expr: MultiresExpression,
+        size: int,
+):
+    if isinstance(expr, FuncCall):
+        expr.evaluate(state, size)
+    elif isinstance(expr, Varargs):
+        state.proto.add_opcode(f"get_varargs {size}")
+    else:
+        raise InternalCompilerError("Illegal multires expression type.")
+
+
+def adjust_expr_list(
+        state: _ProgramState,
+        name_count: int,
+        expr_list: list[Expression | MultiresExpression],
+):
+    difference = name_count - len(expr_list)
+    if difference > 0:  # names > exprs
+        for i in range(len(expr_list) - 1):
+            eval_multires_expr(state, expr_list[i], 1)
+
+        last = expr_list[-1]
+        if isinstance(last, MultiresExpression):
+            eval_multires_expr(state, last, difference + 1)
+        else:
+            for _ in range(difference + 1):
+                state.proto.add_opcode("push_nil")
+    else:  # names == exprs OR names < exprs
+        for i in range(name_count):
+            expr = expr_list[i]
+            if isinstance(expr, MultiresExpression):
+                eval_multires_expr(state, expr, 1)
+            else:
+                expr.evaluate(state)
+
+
 @dataclass
 class String(Ast, Expression):
     value: str
@@ -251,37 +291,12 @@ class LocalAssignStmt(Ast, Statement):
     exprs: list[Expression] = None
 
     def emit(self, state: _ProgramState):
-        difference = len(self.names) - len(self.exprs)
-        if difference > 0:  # names > exprs
-            for i in range(len(self.exprs) - 1):
-                self._eval_expr(state, self.exprs[i])
-
-            last = self.exprs[-1]
-            if isinstance(last, MultiresExpression):
-                self._eval_expr(state, last, difference + 1)
-            else:
-                for _ in range(difference + 1):
-                    state.proto.add_opcode("push_nil")
-        else:  # names == exprs OR names < exprs
-            for i in range(len(self.names)):
-                expr = self.exprs[i]
-                self._eval_expr(state, expr, 1)
-
+        adjust_expr_list(state, len(self.names), self.exprs)
         for attr_name in self.names[::-1]:
             local_index = state.proto.num_locals
             state.proto.block.locals[attr_name.name] = local_index
             state.proto.add_opcode(f"store_local {local_index}")
             state.proto.num_locals += 1
-
-    def _eval_expr(self, state: _ProgramState, expr: Expression | MultiresExpression, size: int = 1):
-        if isinstance(expr, FuncCall):
-            expr.evaluate(state, size)
-        elif isinstance(expr, Varargs):
-            state.proto.add_opcode(f"get_varargs {size}")
-        elif isinstance(expr, Expression):
-            expr.evaluate(state)
-        else:
-            raise InternalCompilerError("Illegal local assignment statement: illegal expression type.")
 
 
 @dataclass
@@ -317,19 +332,14 @@ class TableAccess(Ast, Expression):
         proto.add_opcode("get_table")
 
 
+VarType = Var | DotAccess | TableAccess
+
+
 class AssignStmt(Ast, Statement):
     def __init__(self, var_list, expr_list=None):
-        self.var_list: list[Var | DotAccess | TableAccess] = var_list
+        self.var_list: list[VarType] = var_list
+        self.expr_list: list[Expression] = expr_list
 
-        self.expr_list: list[Expression]
-        if expr_list:
-            nil_count = max(len(var_list) - len(expr_list), 0)
-            expr_list.extend([NilValue.instance] * nil_count)
-            self.expr_list = expr_list
-        else:
-            self.expr_list = [NilValue.instance] * len(var_list)
-
-    # TODO!
     def emit(self, state: _ProgramState):
         proto = state.proto
 
@@ -356,8 +366,7 @@ class AssignStmt(Ast, Statement):
             else:
                 raise InternalCompilerError("Unsupported assignment.")
 
-        for expr in self.expr_list:
-            expr.evaluate(state)
+        adjust_expr_list(state, len(self.var_list), self.expr_list)
 
         aux_index = len(aux) - 1
         for var in self.var_list[::-1]:
