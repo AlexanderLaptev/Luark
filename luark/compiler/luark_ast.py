@@ -6,7 +6,7 @@ from typing import Callable
 from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
 
-from luark.compiler.errors import InternalCompilerError
+from luark.compiler.errors import InternalCompilerError, CompilationError
 from luark.compiler.program import Program, Prototype
 
 
@@ -78,7 +78,6 @@ class _ProtoState:
         self.pc += 1
 
     def compile(self) -> Prototype:
-        self.add_opcode("return")
         prototype = Prototype()
         prototype.func_name = self.func_name
         prototype.opcodes = self.opcodes
@@ -180,6 +179,8 @@ def eval_multires_expr(
     if isinstance(expr, FuncCall):
         expr.evaluate(state, size)
     elif isinstance(expr, Varargs):
+        if not state.proto.is_variadic:
+            raise CompilationError("Cannot use varargs from a non-variadic function.")
         state.proto.add_opcode(f"get_varargs {size}")
     else:
         raise InternalCompilerError("Illegal multires expression type.")
@@ -433,7 +434,7 @@ class FuncDef(Ast, Expression):
         self.body: FuncBody = body
         self.name: str | None = name
 
-    # TODO: define vararg behavior
+    # TODO: define varargs order
     def evaluate(self, state: _ProgramState, *args, **kwargs):
         if not self.name:
             my_number = state.num_lambdas
@@ -470,6 +471,7 @@ class FuncDef(Ast, Expression):
 
         for statement in body.statements:
             statement.emit(state)
+        proto.add_opcode("return")
 
         proto.blocks.pop()
 
@@ -514,7 +516,13 @@ class ReturnStmt(Ast, Statement):
         self.exprs: list[Expression] | None = exprs
 
     def emit(self, state: _ProgramState):
-        state.proto.add_opcode("return")
+        last_index = len(self.exprs) - 1
+        for i, expr in enumerate(self.exprs):
+            if isinstance(expr, MultiresExpression):
+                size = -1 if (i == last_index) else 1
+                eval_multires_expr(state, expr, size)
+            else:
+                expr.evaluate(state)
 
 
 @dataclass
