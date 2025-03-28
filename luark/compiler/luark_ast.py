@@ -362,7 +362,7 @@ class Block(Ast, AsList):
 
     def emit(self, state: _ProgramState):
         block = _BlockState()
-        state.proto.blocks.append(block)
+        state.proto.blocks.append(block)  # TODO: consider refactoring
         for statement in self.statements:
             statement.emit(state)
         state.proto.blocks.pop()
@@ -389,6 +389,7 @@ class VarargList(Ast, AsList):
         self.exprs: list[Expression] = children[:-1]
 
 
+# TODO: generate code in FuncBody directly
 class FuncBody(Ast, AsList):
     def __init__(self, children):
         self.params: list[Expression] | VarargList | Varargs = children[:-1]
@@ -514,6 +515,71 @@ class BreakStmt(Ast, Statement):
         pc = state.proto.pc
         state.proto.add_opcode(None)
         state.proto.block.breaks.append(pc)
+
+
+@dataclass
+class ElseIf(Ast):
+    condition: Expression
+    block: Block
+
+
+class IfStmt(Ast, AsList, Statement):
+    def __init__(self, children: list):
+        self.end_jumps: list[int] = []
+
+        if isinstance(children[0], Expression):
+            self.condition: Expression = children[0]
+        else:
+            raise InternalCompilerError("Illegal 'if' statement: non-expression in condition.")
+        if isinstance(children[1], Block):
+            self.block: Block = children[1]
+        else:
+            raise InternalCompilerError("Illegal 'if' statement: non-block body.")
+
+        self.elseifs: list[ElseIf] = []
+        self.elze: Block | None = None
+        for i in range(2, len(children)):
+            c = children[i]
+            if isinstance(c, ElseIf):
+                self.elseifs.append(c)
+            elif isinstance(c, Block):
+                if not self.elze:
+                    self.elze = c
+                else:
+                    raise InternalCompilerError("Illegal 'if' statement: 'else' block already exists.")
+            else:
+                raise InternalCompilerError("Illegal 'if' statement: illegal child node type.")
+
+    def emit(self, state: _ProgramState):
+        proto = state.proto
+
+        skip_end_jump = not self.elze and len(self.elseifs) == 0
+        self._emit_branch(state, self.condition, self.block, skip_end_jump)
+        for i, el in enumerate(self.elseifs):
+            self._emit_branch(state, el.condition, el.block, i == len(self.elseifs) - 1)
+        if self.elze:
+            self.elze.emit(state)
+
+        for jump in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
+            proto.opcodes[jump] = f"jump {proto.pc - jump}"
+
+    def _emit_branch(
+            self,
+            state: _ProgramState,
+            condition: Expression,
+            block: Block,
+            skip_end_jump: bool
+    ):
+        proto = state.proto
+        condition.evaluate(state)
+        proto.add_opcode("test")
+        jump_pc = proto.pc
+        proto.add_opcode(None)
+        block.emit(state)
+        if not skip_end_jump:
+            self.end_jumps.append(proto.pc)
+            proto.add_opcode(None)
+        proto.opcodes[jump_pc] = f"jump {proto.pc - jump_pc}"
 
 
 @dataclass
