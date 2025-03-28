@@ -153,8 +153,6 @@ class _ProgramState:
         program = Program()
         for proto in self.protos:
             program.prototypes.append(proto.compile())
-        program.prototypes[0].func_name = "$main"
-        program.prototypes[0].is_variadic = True
         return program
 
 
@@ -442,7 +440,6 @@ class FuncDef(Ast, Expression):
             state.num_lambdas += 1
             self.name = f"$lambda#{my_number}"
 
-        proto_index = state.push_proto(self.name)
         proto = state.proto
         block = _BlockState()
         proto.blocks.append(block)
@@ -475,8 +472,6 @@ class FuncDef(Ast, Expression):
             statement.emit(state)
 
         proto.blocks.pop()
-        state.pop_proto()
-        state.proto.add_opcode(f"closure {proto_index}")
 
 
 @dataclass
@@ -492,7 +487,10 @@ class FuncDefStmt(Ast, Statement):
 
         own_name = self.name.names[-1] if isinstance(self.name, FuncName) else self.name
         func_def = FuncDef(self.body, own_name)
+        proto_index = state.push_proto(own_name)
         func_def.evaluate(state)
+        state.pop_proto()
+        state.proto.add_opcode(f"closure {proto_index}")
         self.assign(state, own_name)
 
     def assign(self, state: _ProgramState, own_name: str):
@@ -672,8 +670,11 @@ class Chunk(Ast):
 
     def emit(self) -> Program:
         program_state = _ProgramState()
-        program_state.push_proto()
-        self.block.emit(program_state)
+        func_name = "$main"
+        func_body = FuncBody(Varargs(), self.block)
+        func_def = FuncDef(func_body, func_name)
+        program_state.push_proto(func_name)
+        func_def.evaluate(program_state)
         program_state.pop_proto()
         return program_state.compile()
 
