@@ -357,7 +357,7 @@ class AssignStmt(Ast, Statement):
 
 @dataclass
 class Block(Ast, AsList):
-    statements: list
+    statements: list[Statement]
 
     def emit(self, state: _ProgramState):
         state.proto.blocks.append(_BlockState())
@@ -462,6 +462,26 @@ class FuncCall(Ast, Statement, Expression):
         self.primary.evaluate(state)
         # TODO: arguments
         state.proto.add_opcode("call")
+
+
+@dataclass
+class RepeatStmt(Ast, Statement):
+    block: Block
+    expr: Expression
+
+    def emit(self, state: _ProgramState):
+        block = _BlockState()
+        state.proto.blocks.append(block)
+
+        start = state.proto.pc
+        for st in self.block.statements:
+            st.emit(state)
+        self.expr.evaluate(state)
+        state.proto.add_opcode("test_true")
+        end = state.proto.pc
+        state.proto.add_opcode(f"jump {start - end}")
+
+        state.proto.blocks.pop()
 
 
 @dataclass
