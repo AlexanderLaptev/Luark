@@ -465,6 +465,25 @@ class FuncCall(Ast, Statement, Expression):
 
 
 @dataclass
+class WhileStmt(Ast, Statement):
+    expr: Expression
+    block: Block
+
+    def emit(self, state: _ProgramState):
+        proto = state.proto
+        start = proto.pc
+        self.expr.evaluate(state)
+        proto.add_opcode("test")
+        jump_pc = proto.pc
+        proto.add_opcode(None)
+
+        self.block.emit(state)
+        proto.add_opcode(f"jump {start - proto.pc}")
+        block_end = proto.pc
+        proto.opcodes[jump_pc] = f"jump {block_end - jump_pc}"
+
+
+@dataclass
 class RepeatStmt(Ast, Statement):
     block: Block
     expr: Expression
@@ -477,7 +496,7 @@ class RepeatStmt(Ast, Statement):
         for st in self.block.statements:
             st.emit(state)
         self.expr.evaluate(state)
-        state.proto.add_opcode("test_true")
+        state.proto.add_opcode("test")
         end = state.proto.pc
         state.proto.add_opcode(f"jump {start - end}")
 
