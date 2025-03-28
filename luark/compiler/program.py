@@ -1,6 +1,8 @@
 class Prototype:
     def __init__(self, func_name: str = None):
         self.func_name = func_name
+        self.fixed_params: int = 0
+        self.is_variadic: bool = False
         self.opcodes: list[str] = []
         self.consts: list[int | float | str] = []
         self.num_locals: int = 0
@@ -28,6 +30,11 @@ class Program:
     def __str__(self) -> str:
         out: list[str] = []
         for i, proto in enumerate(self.prototypes):
-            out.append(f"#{i} function {proto.func_name}():")
+            arg_string = "("
+            arg_string += str(proto.fixed_params)
+            if proto.is_variadic:
+                arg_string += ", ..."
+            arg_string += ")"
+            out.append(f"[{i}]function {proto.func_name}{arg_string}:")
             out.append(str(proto))
         return "\n".join(out)

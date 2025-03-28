@@ -85,6 +85,8 @@ class _ProtoState:
         prototype.num_locals = self.num_locals
         prototype.consts = self.consts
         prototype.upvalues = self.upvalues
+        prototype.fixed_params = self.fixed_params
+        prototype.is_variadic = self.is_variadic
         return prototype
 
 
@@ -152,6 +154,7 @@ class _ProgramState:
         for proto in self.protos:
             program.prototypes.append(proto.compile())
         program.prototypes[0].func_name = "$main"
+        program.prototypes[0].is_variadic = True
         return program
 
 
