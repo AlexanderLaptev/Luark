@@ -14,6 +14,7 @@ class _BlockState:
     def __init__(self):
         self.locals: dict[str, int] = {}
         self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler
+        self.breaks: list[int] = []
 
 
 ConstType = int | float | str
@@ -360,10 +361,12 @@ class Block(Ast, AsList):
     statements: list[Statement]
 
     def emit(self, state: _ProgramState):
-        state.proto.blocks.append(_BlockState())
+        block = _BlockState()
+        state.proto.blocks.append(block)
         for statement in self.statements:
             statement.emit(state)
         state.proto.blocks.pop()
+        return block
 
 
 @dataclass
@@ -477,10 +480,13 @@ class WhileStmt(Ast, Statement):
         jump_pc = proto.pc
         proto.add_opcode(None)
 
-        self.block.emit(state)
+        body = self.block.emit(state)
         proto.add_opcode(f"jump {start - proto.pc}")
         block_end = proto.pc
+
         proto.opcodes[jump_pc] = f"jump {block_end - jump_pc}"
+        for br in body.breaks:
+            proto.opcodes[br] = f"jump {block_end - br}"
 
 
 @dataclass
@@ -501,6 +507,13 @@ class RepeatStmt(Ast, Statement):
         state.proto.add_opcode(f"jump {start - end}")
 
         state.proto.blocks.pop()
+
+
+class BreakStmt(Ast, Statement):
+    def emit(self, state: _ProgramState):
+        pc = state.proto.pc
+        state.proto.add_opcode(None)
+        state.proto.block.breaks.append(pc)
 
 
 @dataclass

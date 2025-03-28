@@ -1,4 +1,10 @@
-local x, y = 0, 0
+local qux, baz, bar, foo, y, x
 while x do
-    y = 1
+    foo()
+    while y do
+        bar()
+        break
+        baz()
+    end
+    qux()
 end
