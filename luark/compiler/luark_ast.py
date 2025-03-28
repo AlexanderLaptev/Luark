@@ -238,7 +238,7 @@ class AttribName(Ast):
 
 
 @dataclass
-class LocalStmt(Ast, Statement):
+class LocalAssignStmt(Ast, Statement):
     def __init__(self, names: list[AttribName], exprs: list[Expression] = None):
         self.names: list[AttribName] = names
 
