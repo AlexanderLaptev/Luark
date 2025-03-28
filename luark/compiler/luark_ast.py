@@ -450,6 +450,21 @@ class ReturnStmt(Ast, Statement):
 
 
 @dataclass
+class FuncCall(Ast, Statement, Expression):
+    primary: Expression
+    params: list[Expression] | String = None  # TODO: table constructors
+
+    def emit(self, state: _ProgramState):
+        self.evaluate(state)
+        # TODO: discard return values
+
+    def evaluate(self, state: _ProgramState):
+        self.primary.evaluate(state)
+        # TODO: arguments
+        state.proto.add_opcode("call")
+
+
+@dataclass
 class Chunk(Ast):
     block: Block
 
