@@ -1,1 +1,1 @@
-foo(1, "abc", bar())
+local x, y, z = foo(), foo()

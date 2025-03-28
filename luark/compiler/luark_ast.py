@@ -161,15 +161,19 @@ class Statement(ABC):
 
 class Expression(ABC):
     @abstractmethod
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         raise NotImplementedError
+
+
+class MultiresExpression:
+    pass
 
 
 @dataclass
 class String(Ast, Expression):
     value: str
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         index = state.proto.get_const_index(self.value)
         state.proto.add_opcode(f"push_const {index}")
 
@@ -178,7 +182,7 @@ class String(Ast, Expression):
 class Number(Ast, Expression):
     value: int | float
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         if isinstance(self.value, int):
             state.proto.add_opcode(f"push_int {self.value}")
         elif isinstance(self.value, float):
@@ -191,7 +195,7 @@ class Number(Ast, Expression):
 
 
 class NilValue(Expression):
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         state.proto.add_opcode("push_nil")
 
 
@@ -199,7 +203,7 @@ NilValue.instance = NilValue()
 
 
 class TrueValue(Expression):
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         state.proto.add_opcode("push_true")
 
 
@@ -207,7 +211,7 @@ TrueValue.instance = TrueValue()
 
 
 class FalseValue(Expression):
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         state.proto.add_opcode("push_false")
 
 
@@ -220,10 +224,14 @@ class BinaryOpExpression(Expression):
     left: Expression
     right: Expression
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         self.left.evaluate(state)
         self.right.evaluate(state)
         state.proto.add_opcode(self.opcode)
+
+
+class Varargs(Ast, MultiresExpression):
+    pass
 
 
 class AttribName(Ast):
@@ -239,32 +247,48 @@ class AttribName(Ast):
 
 @dataclass
 class LocalAssignStmt(Ast, Statement):
-    def __init__(self, names: list[AttribName], exprs: list[Expression] = None):
-        self.names: list[AttribName] = names
-
-        self.exprs: list[Expression]
-        if exprs:
-            nil_count = max(len(names) - len(exprs), 0)
-            exprs.extend([NilValue.instance] * nil_count)
-            self.exprs = exprs
-        else:
-            self.exprs = [NilValue.instance] * len(names)
+    names: list[AttribName]
+    exprs: list[Expression] = None
 
     def emit(self, state: _ProgramState):
-        for expr in self.exprs:
-            expr.evaluate(state)
-        for aname in self.names[::-1]:
+        difference = len(self.names) - len(self.exprs)
+        if difference > 0:  # names > exprs
+            for i in range(len(self.exprs) - 1):
+                self._eval_expr(state, self.exprs[i])
+
+            last = self.exprs[-1]
+            if isinstance(last, MultiresExpression):
+                self._eval_expr(state, last, difference + 1)
+            else:
+                for _ in range(difference + 1):
+                    state.proto.add_opcode("push_nil")
+        else:  # names == exprs OR names < exprs
+            for i in range(len(self.names)):
+                expr = self.exprs[i]
+                self._eval_expr(state, expr, 1)
+
+        for attr_name in self.names[::-1]:
             local_index = state.proto.num_locals
-            state.proto.block.locals[aname.name] = local_index
+            state.proto.block.locals[attr_name.name] = local_index
             state.proto.add_opcode(f"store_local {local_index}")
             state.proto.num_locals += 1
+
+    def _eval_expr(self, state: _ProgramState, expr: Expression | MultiresExpression, size: int = 1):
+        if isinstance(expr, FuncCall):
+            expr.evaluate(state, size)
+        elif isinstance(expr, Varargs):
+            state.proto.add_opcode(f"get_varargs {size}")
+        elif isinstance(expr, Expression):
+            expr.evaluate(state)
+        else:
+            raise InternalCompilerError("Illegal local assignment statement: illegal expression type.")
 
 
 @dataclass
 class Var(Ast, Expression):
     name: str
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         state.read(self.name)
 
 
@@ -273,7 +297,7 @@ class DotAccess(Ast, Expression):
     expression: Expression
     name: str
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         proto = state.proto
         self.expression.evaluate(state)
         index = proto.get_const_index(self.name)
@@ -286,7 +310,7 @@ class TableAccess(Ast, Expression):
     table: Expression
     key: Expression
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         proto = state.proto
         self.table.evaluate(state)
         self.key.evaluate(state)
@@ -383,10 +407,6 @@ class MethodName(Ast, AsList):
         self.method_name: str = children[-1]
 
 
-class Varargs(Ast):
-    pass
-
-
 class VarargList(Ast, AsList):
     def __init__(self, children):
         self.names: list[str] = children
@@ -404,7 +424,7 @@ class FuncDef(Ast, Expression):
         self.name: str | None = name
 
     # TODO: define vararg behavior
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         if not self.name:
             my_number = state.num_lambdas
             state.num_lambdas += 1
@@ -488,27 +508,36 @@ class ReturnStmt(Ast, Statement):
 
 
 @dataclass
-class FuncCall(Ast, Statement, Expression):
+class FuncCall(Ast, Statement, Expression, MultiresExpression):
     primary: Expression
     params: list[Expression] | String = None  # TODO: table constructors
 
     def emit(self, state: _ProgramState):
-        self.evaluate(state)
-        # TODO: discard return values
+        self.evaluate(state, 0)
 
-    def evaluate(self, state: _ProgramState):
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
         self.primary.evaluate(state)
 
-        if isinstance(self.params, list):
-            expr: Expression
-            for expr in self.params:
-                expr.evaluate(state)
-        elif isinstance(self.params, String):
-            self.params.evaluate(state)
-        else:
-            raise InternalCompilerError("Illegal function call: illegal type of parameters.")
+        return_count: int = 1
+        if args:
+            if not isinstance(args[0], int):
+                raise InternalCompilerError("Illegal function call: illegal return count.")
+            return_count = args[0]
 
-        state.proto.add_opcode("call")
+        param_count: int = 0
+        if self.params:
+            if isinstance(self.params, list):
+                param_count = len(self.params)
+                expr: Expression
+                for expr in self.params:
+                    expr.evaluate(state)
+            elif isinstance(self.params, String):
+                param_count = 1
+                self.params.evaluate(state)
+            else:
+                raise InternalCompilerError("Illegal function call: illegal type of parameters.")
+
+        state.proto.add_opcode(f"call {param_count} {return_count}")
 
 
 @dataclass

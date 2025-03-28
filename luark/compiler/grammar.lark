@@ -9,6 +9,7 @@ number: DEC_INT -> dec_int
     | DEC_FLOAT -> dec_float
     | HEX_NUMBER -> hex_number
 string: STRING | MULTISTRING
+varargs: "..."
 
 var: ID
     | primary "." ID -> dot_access
@@ -69,7 +70,7 @@ field: "[" expr "]" "=" expr
     | "true" -> true
     | "false" -> false
     | "nil" -> nil
-    | "..." -> vararg
+    | varargs
 expr_list: expr ("," expr)*
 
 ?statement: ";" -> empty_stmt
@@ -100,7 +101,7 @@ func_def: "function" func_body
 func_body: "(" param_list? ")" block "end"
 ?param_list: name_list
     | ID ("," ID)* "," "..." -> vararg_list
-    | "..." -> varargs
+    | varargs
 func_def_stmt: "function" func_name func_body
     | "local" "function" ID func_body -> local_func_def_stmt
 ?func_name: ID ("." ID)*
