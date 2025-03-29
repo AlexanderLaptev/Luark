@@ -1,1 +1,2 @@
-local x = {1, 2, 3}
+for i = 0, 5, -4 do
+end

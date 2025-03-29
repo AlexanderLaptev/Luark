@@ -422,7 +422,9 @@ class VarargList(Ast, AsList):
     def __init__(self, children):
         self.names: list[str] = children
 
+
 ParamList = list[str] | VarargList | Varargs
+
 
 class FuncBody(Ast, AsList):
     def __init__(self, children: list):
@@ -738,6 +740,52 @@ class IfStmt(Ast, AsList, Statement):
             self.end_jumps.append(proto.pc)
             proto.add_opcode(None)
         proto.opcodes[jump_pc] = f"jump {proto.pc - jump_pc}"
+
+
+@dataclass
+class ForLoopNum(Ast, Statement):
+    control_name: str
+    initial_expr: Expression
+    limit_expr: Expression
+    step_expr: Expression | None
+    body: Block
+
+    def emit(self, state: _ProgramState):
+        proto = state.proto
+
+        control_index = proto.add_aux_local()
+        proto.add_aux_local()
+        proto.add_aux_local()
+        proto.get_local_index(self.control_name)
+
+        self.initial_expr.evaluate(state)
+        self.limit_expr.evaluate(state)
+        if self.step_expr:
+            self.step_expr.evaluate(state)
+        else:
+            proto.add_opcode("push_int 1")
+        proto.add_opcode(f"prepare_for {control_index}")
+
+        loop_start = proto.pc
+        proto.add_opcode(f"test_for {control_index}")
+        escape_jump = proto.pc
+        proto.add_opcode(None)
+
+        block = self.body.emit(state)
+        proto.add_opcode(f"jump {loop_start - proto.pc}")
+        proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
+        for br in block.breaks:
+            proto.opcodes[br] = f"jump {proto.pc - br}"
+
+
+@dataclass
+class ForLoopGen(Ast, Statement):
+    name_list: list[str]
+    expr_list: list[Expression | MultiresExpression]
+    body: Block
+
+    def emit(self, state: _ProgramState):
+        pass
 
 
 @dataclass

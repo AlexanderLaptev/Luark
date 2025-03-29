@@ -110,7 +110,7 @@ func_def_stmt: "function" func_name func_body
 if_stmt: "if" expr "then" block else_if* ("else" block)? "end"
 else_if: "elseif" expr "then" block
 
-for_loop: "for" ID "=" expr "," expr ("," expr)? "do" block "end" -> for_loop_num
+for_loop: "for" ID "=" expr "," expr ["," expr] "do" block "end" -> for_loop_num
     | "for" name_list "in" expr_list "do" block "end" -> for_loop_gen
 
 ID: /[^\W\d]\w*/
