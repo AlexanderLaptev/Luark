@@ -218,7 +218,13 @@ def adjust_expr_list(
         count: int,
         expr_list: list[Expression | MultiresExpression],
 ):
+    if not expr_list or len(expr_list) == 0:
+        for _ in range(count):
+            state.proto.add_opcode("push_nil")
+        return
+
     difference = count - len(expr_list)
+
     if difference > 0:  # names > exprs
         for i in range(len(expr_list) - 1):
             eval_multires_expr(state, expr_list[i], 2)
