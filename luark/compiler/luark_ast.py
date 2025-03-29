@@ -80,13 +80,13 @@ class _ProtoState:
         if name not in self.block.labels:
             self.block.labels[name] = self.pc
         else:
-            raise CompilationError(f"Label {name} is already defined.")
+            raise CompilationError(f"Label '{name}' is already defined.")
 
     def get_label_target(self, name: str):
         if name in self.block.labels:
             return self.block.labels[name]
         else:
-            raise CompilationError(f"Label {name} is not defined.")
+            raise CompilationError(f"Label '{name}' is not defined.")
 
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
@@ -511,7 +511,8 @@ class FuncDef(Ast, Expression):
             name, locals_count = data
             if proto.num_locals != locals_count:
                 raise CompilationError("Cannot jump into a scope of a local variable.")
-            proto.opcodes[pc] = f"jump {block.labels[name] - pc}"
+            target = proto.get_label_target(name)
+            proto.opcodes[pc] = f"jump {target - pc}"
 
         state.pop_block()
 
