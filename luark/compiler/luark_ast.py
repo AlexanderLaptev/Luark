@@ -318,7 +318,7 @@ class Varargs(Ast, MultiresExpression):
 
 
 class AttribName(Ast):
-    def __init__(self, name: str, attribute: str | None):
+    def __init__(self, name: str, attribute: str | None = None):
         # TODO!
         # Only <const> and <close> are allowed by the spec.
         if attribute:
@@ -457,15 +457,24 @@ class Block(Ast, AsList, Statement):
 class FuncName(Ast, AsList):
     names: list[str]
 
+    def to_lvalue(self) -> Var | DotAccess:
+        if len(self.names) == 1:
+            return Var(self.names[0])
+        elif len(self.names) > 1:
+            result = DotAccess(String(self.names[0]), self.names[1])
+            for i in range(2, len(self.names)):
+                result = DotAccess(result, self.names[i])
+            return result
+        else:
+            raise InternalCompilerError("Illegal function name: empty name list.")
 
-class MethodName(Ast, AsList):
-    def __init__(self, children: list[str]):
-        self.names: list[str] = children[:-1]
-        self.method_name: str = children[-1]
+
+class MethodName(FuncName):
+    pass
 
 
 class VarargList(Ast, AsList):
-    def __init__(self, children):
+    def __init__(self, children: list):
         self.names: list[str] = children
 
 
@@ -537,37 +546,37 @@ class FuncDef(Ast, Expression):
 
 @dataclass
 class FuncDefStmt(Ast, Statement):
-    name: FuncName | MethodName | str
+    name: FuncName | MethodName
     body: FuncBody
 
     def emit(self, state: _ProgramState):
-        if isinstance(self.name, MethodName):  # TODO
-            raise NotImplementedError
-        if isinstance(self.name, FuncName) and len(self.name.names) != 1:
-            raise NotImplementedError
+        if isinstance(self.name, MethodName):
+            params = self.body.params
+            if isinstance(params, list):
+                params.insert(0, "self")
+            elif isinstance(params, VarargList):
+                params.names.insert(0, "self")
+            elif isinstance(params, Varargs):
+                self.body.params = VarargList(["self"])
+            else:
+                raise InternalCompilerError("Illegal function body.")
 
-        own_name = self.name.names[-1] if isinstance(self.name, FuncName) else self.name
-        func_def = FuncDef(self.body, own_name)
-        proto_index = state.push_proto(own_name)
-        func_def.evaluate(state)
-        state.pop_proto()
-        state.proto.add_opcode(f"closure {proto_index}")
-        self.assign(state, own_name)
-
-    def assign(self, state: _ProgramState, own_name: str):
-        my_proto = state.proto
-        env_index = my_proto.get_upvalue_index("_ENV")
-        my_proto.add_opcode(f"get_upvalue {env_index}")
-        name_index = my_proto.get_const_index(own_name)
-        my_proto.add_opcode(f"push_const {name_index}")
-        my_proto.add_opcode("set_table")
+        full_name = '.'.join(self.name.names)
+        lvalue = self.name.to_lvalue()
+        func_def = FuncDef(self.body, full_name)
+        assign_stmt = AssignStmt([lvalue], [func_def])
+        assign_stmt.emit(state)
 
 
-class LocalFuncDefStmt(FuncDefStmt):
-    def assign(self, state: _ProgramState, own_name: str):
-        my_proto = state.proto
-        local = my_proto.get_local_index(own_name)
-        my_proto.add_opcode(f"store_local {local}")
+@dataclass
+class LocalFuncDefStmt(Ast, Statement):
+    name: str
+    body: FuncBody
+
+    def emit(self, state: _ProgramState):
+        func_def = FuncDef(self.body, self.name)
+        assign_stmt = LocalAssignStmt([AttribName(self.name)], [func_def])
+        assign_stmt.emit(state)
 
 
 class ReturnStmt(Ast, Statement):
