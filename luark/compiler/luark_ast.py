@@ -459,7 +459,7 @@ ParamList = list[str] | VarargList | Varargs
 
 
 @dataclass
-class FuncBody(Ast, AsList):
+class FuncBody(Ast):
     params: ParamList | None
     block: Block
 
@@ -476,7 +476,8 @@ class FuncDef(Ast, Expression):
             state.num_lambdas += 1
             self.name = f"$lambda#{my_number}"
 
-        proto = state.proto
+        proto_index = state.push_proto(self.name)
+        proto = state.protos[proto_index]
         block = state.push_block()
 
         body = self.body.block
@@ -504,8 +505,7 @@ class FuncDef(Ast, Expression):
         proto.fixed_params = fixed_params
         proto.is_variadic = is_variadic
 
-        for statement in body.statements:
-            statement.emit(state)
+        body.emit_statements(state)
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
             proto.add_opcode("return 1")
 
@@ -518,6 +518,7 @@ class FuncDef(Ast, Expression):
             proto.opcodes[pc] = f"jump {target - pc}"
 
         state.pop_block()
+        state.pop_proto()
 
 
 @dataclass
