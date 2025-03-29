@@ -10,12 +10,13 @@ from luark.compiler.errors import InternalCompilerError, CompilationError
 from luark.compiler.program import Program, Prototype
 
 
-# TODO: refactor expression types
+# TODO: refactor type hints
+# TODO: add debug metadata for locals (names, lines, etc.)
 
-class _BlockState:
+class _BlockState:  # TODO: rename to Scope?
     def __init__(self):
-        self.locals: dict[str, int] = {}
-        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler
+        self.locals: dict[str, int] = {}  # TODO: free local variable slots when the block is popped?
+        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler  # TODO: rename to temp?
         self.breaks: list[int] = []
 
 
@@ -196,10 +197,10 @@ def eval_multires_expr(
 
 def adjust_expr_list(
         state: _ProgramState,
-        name_count: int,
+        count: int,
         expr_list: list[Expression | MultiresExpression],
 ):
-    difference = name_count - len(expr_list)
+    difference = count - len(expr_list)
     if difference > 0:  # names > exprs
         for i in range(len(expr_list) - 1):
             eval_multires_expr(state, expr_list[i], 2)
@@ -211,7 +212,7 @@ def adjust_expr_list(
             for _ in range(difference + 1):
                 state.proto.add_opcode("push_nil")
     else:  # names == exprs OR names < exprs
-        for i in range(name_count):
+        for i in range(count):
             expr = expr_list[i]
             if isinstance(expr, MultiresExpression):
                 eval_multires_expr(state, expr, 2)
@@ -754,10 +755,10 @@ class ForLoopNum(Ast, Statement):
             self.step_expr.evaluate(state)
         else:
             proto.add_opcode("push_int 1")
-        proto.add_opcode(f"prepare_for {control_index}")
+        proto.add_opcode(f"prepare_for_num {control_index}")
 
         loop_start = proto.pc
-        proto.add_opcode(f"test_for {control_index}")
+        proto.add_opcode(f"test_for_num {control_index}")
         escape_jump = proto.pc
         proto.add_opcode(None)
 
@@ -776,7 +777,43 @@ class ForLoopGen(Ast, Statement):
     body: Block
 
     def emit(self, state: _ProgramState):
-        pass
+        proto = state.proto
+        block = state.push_block()
+
+        control_index = proto.get_local_index(self.name_list[0])
+        iterator_index = proto.add_aux_local()
+        state_index = proto.add_aux_local()
+        initial_index = proto.add_aux_local()
+        proto.add_aux_local()  # closing value
+
+        adjust_expr_list(state, 4, self.expr_list)
+        proto.add_opcode(f"prepare_for_gen {iterator_index}")
+        proto.add_opcode(f"load_local {initial_index}")
+        proto.add_opcode(f"store_local {control_index}")
+
+        return_count = len(self.name_list) + 1
+        proto.add_opcode(f"load_local {state_index}")
+        proto.add_opcode(f"load_local {control_index}")
+        proto.add_opcode(f"call 2 {return_count}")
+
+        for name in reversed(self.name_list):
+            index = proto.get_local_index(name)
+            proto.add_opcode(f"store_local {index}")
+
+        # TODO: merge common code with ForLoopNum
+        loop_start = proto.pc
+        proto.add_opcode(f"load_local {control_index}")
+        proto.add_opcode("test")
+        escape_jump = proto.pc
+        proto.add_opcode(None)
+
+        self.body.emit_statements(state)
+        proto.add_opcode(f"jump {loop_start - proto.pc}")
+        proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
+        for br in block.breaks:
+            proto.opcodes[br] = f"jump {proto.pc - br}"
+
+        state.pop_block()
 
 
 @dataclass
