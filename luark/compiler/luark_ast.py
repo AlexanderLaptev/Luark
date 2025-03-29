@@ -993,10 +993,9 @@ class LuarkTransformer(Transformer):
         return s
 
     def MULTISTRING(self, s):
-        raise NotImplementedError
-        # s = str(s)
-        # size = s.find("[", 1) + 1
-        # return s[size:-size]
+        s = str(s)
+        size = s.find("[", 1) + 1
+        return s[size:-size].removeprefix("\n")
 
     def _bin_num_op_expr(self, c: list, op: str, func: Callable):
         if (isinstance(c[0], Number)
