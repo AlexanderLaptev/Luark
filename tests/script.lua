@@ -1,2 +1,9 @@
-foo:bar()
-foo(1, 2, "bar")
+---[[
+local x = 1
+do
+    x = 2
+    local x = 10
+    x = 15
+end
+x = 3
+--]]

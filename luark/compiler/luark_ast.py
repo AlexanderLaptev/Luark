@@ -7,27 +7,20 @@ from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
 
 from luark.compiler.errors import InternalCompilerError, CompilationError
-from luark.compiler.program import Program, Prototype
+from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex
 
 
 # TODO: refactor type hints
-# TODO: add debug metadata for locals (names, lines, etc.)
 # TODO: refactor multires expressions
 # TODO: code cleanup
-
-@dataclass
-class _LocalVar:
-    index: int
-    is_const: bool = False
-
-    def __str__(self):
-        return str(self.index)
+# TODO: add upvalue metadata
 
 
 class _BlockState:
+    current_locals: LocalVarIndex
+
     def __init__(self):
-        self.locals: dict[str, _LocalVar] = {}  # TODO: free local variable slots when the block is popped?
-        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler
+        self.current_locals = LocalVarIndex()  # TODO: free local variable slots when the block is popped?
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
         self.gotos = {}
@@ -38,7 +31,10 @@ ConstType = int | float | str
 
 
 class _ProtoState:
-    def __init__(self, func_name: str = None, ):
+    locals: LocalVarIndex
+
+    def __init__(self, func_name: str = None):
+        self.locals = LocalVarIndex()
         self.fixed_params: int = 0
         self.is_variadic: bool = False
 
@@ -74,19 +70,24 @@ class _ProtoState:
         self.consts[value] = index
         return index
 
-    def get_local_index(self, own_name: str) -> int:
-        if own_name in self.block.locals:
-            return self.block.locals[own_name].index
+    def new_local(self, name: str) -> int:
         index = self.num_locals
+        self.block.current_locals.add(LocalVar(name, index, self.pc))
         self.num_locals += 1
-        self.block.locals[own_name] = _LocalVar(index)
         return index
 
-    def add_aux_local(self) -> int:
-        index = self.num_locals
-        self.block.aux_locals.append(index)
+    def get_local_index(self, name: str) -> int:
+        if self.block.current_locals.has_name(name):
+            var = self.block.current_locals.get_by_name(name)[-1]
+            return var.index
+        else:
+            return self.new_local(name)
+
+    def new_temporary(self) -> int:
+        var = LocalVar(None, self.num_locals, self.pc)
+        self.block.current_locals.add(var)
         self.num_locals += 1
-        return index
+        return var.index
 
     def add_label(self, name: str):
         if name not in self.block.labels:
@@ -109,7 +110,7 @@ class _ProtoState:
         self.pc -= 1
 
     def add_goto(self, label: str):
-        self.block.gotos[self.pc] = (label, len(self.block.locals))
+        self.block.gotos[self.pc] = (label, len(self.block.current_locals))
         self.add_opcode(None)
 
     def compile(self) -> Prototype:
@@ -117,6 +118,7 @@ class _ProtoState:
         prototype.func_name = self.func_name
         prototype.opcodes = self.opcodes
         prototype.num_locals = self.num_locals
+        prototype.locals = self.locals
         prototype.consts = list(self.consts.keys())
         prototype.upvalues = list(self.upvalues.keys())
         prototype.fixed_params = self.fixed_params
@@ -151,7 +153,11 @@ class _ProgramState:
         return block
 
     def pop_block(self):
-        self.proto.blocks.pop()
+        block = self.proto.blocks.pop()
+        end = self.proto.pc - 1
+        for var in block.current_locals:
+            var.end = end
+        self.proto.locals.merge(block.current_locals)
 
     def assign(self, name: str):
         self._resolve(name, False)
@@ -166,7 +172,7 @@ class _ProgramState:
             visited_protos.append(proto)
             upvalue = self.proto != proto  # upvalues are locals from an enclosing function
             for block in reversed(proto.blocks):
-                if name in block.locals:
+                if block.current_locals.has_name(name):
                     if upvalue:
                         # A local variable in an outer function. Create an
                         # upvalue and drill it through the proto stack.
@@ -177,7 +183,7 @@ class _ProgramState:
                         current_proto.add_opcode(f"{opcode} {upvalue_index}")
                     else:
                         # A local variable in the same function.
-                        index = block.locals[name]
+                        index = block.current_locals.get_by_name(name)[-1].index
                         opcode = "load_local" if get else "store_local"
                         current_proto.add_opcode(f"{opcode} {index}")
 
@@ -350,9 +356,7 @@ class LocalAssignStmt(Ast, Statement):
 
         adjust_expr_list(state, len(self.names), self.exprs)
         for attr_name in self.names[::-1]:
-            # TODO: don't add locals directly
-            local_index = state.proto.num_locals
-            state.proto.block.locals[attr_name.name] = _LocalVar(local_index)
+            local_index = state.proto.new_local(attr_name.name)
             # Only <const> and <close> are allowed by the spec.
             if attr_name.attribute:
                 if attr_name.attribute == "close":
@@ -361,11 +365,10 @@ class LocalAssignStmt(Ast, Statement):
                     has_tbc_var = True
                     state.proto.block.tbc_locals.append(local_index)
                 elif attr_name.attribute == "const":
-                    state.proto.block.locals[attr_name.name].is_const = True
+                    state.proto.block.current_locals.get_by_name(attr_name.name).is_const = True
                 else:
                     raise CompilationError(f"Unsupported attribute: <{attr_name.attribute}>.")
 
-            state.proto.num_locals += 1
             state.proto.add_opcode(f"store_local {local_index}")
 
 
@@ -418,13 +421,13 @@ class AssignStmt(Ast, Statement):
             if isinstance(var, Var):
                 continue
             elif isinstance(var, DotAccess):
-                index = proto.add_aux_local()
+                index = proto.new_temporary()
                 var.expression.evaluate(state)
-                proto.add_opcode(f"local_store {index}")
+                proto.add_opcode(f"store_local {index}")
                 aux.append(index)
             elif isinstance(var, TableAccess):
-                table_index = proto.add_aux_local()
-                key_index = proto.add_aux_local()
+                table_index = proto.new_temporary()
+                key_index = proto.new_temporary()
 
                 var.table.evaluate(state)
                 proto.add_opcode(f"store_local {table_index}")
@@ -468,7 +471,12 @@ class Block(Ast, AsList, Statement):
 
     def emit(self, state: _ProgramState):
         for statement in self.statements:
-            statement.emit(state)
+            if isinstance(statement, Block):
+                state.push_block()
+                statement.emit(state)
+                state.pop_block()
+            else:
+                statement.emit(state)
 
 
 @dataclass
@@ -542,7 +550,7 @@ class FuncDef(Ast, Expression):
 
             for name in params.names:
                 local_index = proto.get_local_index(name)
-                proto.add_opcode(f"local_store {local_index}")
+                proto.add_opcode(f"store_local {local_index}")
 
         body.emit(state)
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
@@ -635,7 +643,7 @@ class TableConstructor(Ast, AsList, Expression):
     def evaluate(self, state: _ProgramState, *args, **kwargs):
         proto = state.proto
         proto.add_opcode("create_table")
-        table_local = proto.add_aux_local()
+        table_local = proto.new_temporary()
         proto.add_opcode(f"store_local {table_local}")
 
         if self.fields:
@@ -710,7 +718,7 @@ class MethodCall(FuncCall):  # TODO: does it really need to inherit FuncCall?
         self.params = params
 
     def evaluate(self, state: _ProgramState, *args, **kwargs):
-        obj_index = state.proto.add_aux_local()
+        obj_index = state.proto.new_temporary()
         self.primary.evaluate(state)
         state.proto.add_opcode(f"store_local {obj_index}")
 
@@ -852,9 +860,9 @@ class ForLoopNum(Ast, Statement):
         block = state.push_block()
 
         # TODO: make all local to body, not the current block
-        control_index = proto.add_aux_local()
-        proto.add_aux_local()
-        proto.add_aux_local()
+        control_index = proto.new_temporary()
+        proto.new_temporary()
+        proto.new_temporary()
         proto.get_local_index(self.control_name)
 
         self.initial_expr.evaluate(state)
@@ -889,10 +897,10 @@ class ForLoopGen(Ast, Statement):
         block = state.push_block()
 
         control_index = proto.get_local_index(self.name_list[0])
-        iterator_index = proto.add_aux_local()
-        state_index = proto.add_aux_local()
-        initial_index = proto.add_aux_local()
-        proto.add_aux_local()  # closing value
+        iterator_index = proto.new_temporary()
+        state_index = proto.new_temporary()
+        initial_index = proto.new_temporary()
+        proto.new_temporary()  # closing value
 
         adjust_expr_list(state, 4, self.expr_list)
         proto.add_opcode(f"prepare_for_gen {iterator_index}")
