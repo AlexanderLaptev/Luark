@@ -422,8 +422,11 @@ class AssignStmt(Ast, Statement):
 
 
 @dataclass
-class Block(Ast, AsList):
+class Block(Ast, AsList, Statement):
     statements: list[Statement]
+
+    def emit(self, state: _ProgramState):
+        self.emit_block(state)
 
     def emit_block(self, state: _ProgramState):
         block = state.push_block()
