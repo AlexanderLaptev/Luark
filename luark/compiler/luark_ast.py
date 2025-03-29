@@ -305,6 +305,14 @@ class BinaryOpExpression(Expression):
         state.proto.add_opcode(self.opcode)
 
 
+@dataclass
+class UnaryExpression(Expression):
+    opcode: str
+
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
+        state.proto.add_opcode(self.opcode)
+
+
 class Varargs(Ast, MultiresExpression):
     pass
 
@@ -959,13 +967,6 @@ class LuarkTransformer(Transformer):
         # size = s.find("[", 1) + 1
         # return s[size:-size]
 
-    def concat_expr(self, c):
-        if (isinstance(c[0], String)
-                and isinstance(c[1], String)):
-            return String(c[0].value + c[1].value)
-        else:
-            raise NotImplementedError
-
     def _bin_num_op_expr(self, c: list, op: str, func: Callable):
         if (isinstance(c[0], Number)
                 and isinstance(c[1], Number)):
@@ -974,6 +975,52 @@ class LuarkTransformer(Transformer):
             return BinaryOpExpression(op, *c)
 
     # TODO: optimize `or true`, `and false`
+
+    def or_expr(self, c):
+        return BinaryOpExpression("or", *c)
+
+    def and_expr(self, c):
+        return BinaryOpExpression("and", *c)
+
+    def comp_lt(self, c):
+        return BinaryOpExpression("lt", *c)
+
+    def comp_gt(self, c):
+        return BinaryOpExpression("gt", *c)
+
+    def comp_le(self, c):
+        return BinaryOpExpression("le", *c)
+
+    def comp_ge(self, c):
+        return BinaryOpExpression("ge", *c)
+
+    def comp_eq(self, c):
+        return BinaryOpExpression("eq", *c)
+
+    def comp_neq(self, c):
+        return BinaryOpExpression("neq", *c)
+
+    def bw_or_expr(self, c):
+        return BinaryOpExpression("bor", *c)
+
+    def bw_xor_expr(self, c):
+        return BinaryOpExpression("bxor", *c)
+
+    def bw_and_expr(self, c):
+        return BinaryOpExpression("band", *c)
+
+    def lsh_expr(self, c):
+        return BinaryOpExpression("lsh", *c)
+
+    def rsh_expr(self, c):
+        return BinaryOpExpression("rsh", *c)
+
+    def concat_expr(self, c):
+        if (isinstance(c[0], String)
+                and isinstance(c[1], String)):
+            return String(c[0].value + c[1].value)
+        else:
+            return BinaryOpExpression("concat", *c)
 
     def add_expr(self, c):
         return self._bin_num_op_expr(c, "add", lambda x, y: x + y)
@@ -993,11 +1040,20 @@ class LuarkTransformer(Transformer):
     def mod_expr(self, c):
         return self._bin_num_op_expr(c, "mod", lambda x, y: x % y)
 
-    def exp_expr(self, c):
-        return self._bin_num_op_expr(c, "exp", lambda x, y: x ** y)
-
     def unary_minus(self, c):
         if isinstance(c[0], Number):
             return Number(-c[0].value)
         else:
-            raise NotImplementedError
+            return UnaryExpression("negate")
+
+    def unary_not(self, _):
+        return UnaryExpression("not")
+
+    def unary_length(self, _):
+        return UnaryExpression("len")
+
+    def unary_bw_not(self, _):
+        return UnaryExpression("bnot")
+
+    def exp_expr(self, c):
+        return self._bin_num_op_expr(c, "exp", lambda x, y: x ** y)
