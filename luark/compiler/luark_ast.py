@@ -194,11 +194,11 @@ def adjust_expr_list(
     difference = name_count - len(expr_list)
     if difference > 0:  # names > exprs
         for i in range(len(expr_list) - 1):
-            eval_multires_expr(state, expr_list[i], 1)
+            eval_multires_expr(state, expr_list[i], 2)
 
         last = expr_list[-1]
         if isinstance(last, MultiresExpression):
-            eval_multires_expr(state, last, difference + 1)
+            eval_multires_expr(state, last, difference + 2)
         else:
             for _ in range(difference + 1):
                 state.proto.add_opcode("push_nil")
@@ -206,7 +206,7 @@ def adjust_expr_list(
         for i in range(name_count):
             expr = expr_list[i]
             if isinstance(expr, MultiresExpression):
-                eval_multires_expr(state, expr, 1)
+                eval_multires_expr(state, expr, 2)
             else:
                 expr.evaluate(state)
 
@@ -422,11 +422,20 @@ class VarargList(Ast, AsList):
     def __init__(self, children):
         self.names: list[str] = children
 
+ParamList = list[str] | VarargList | Varargs
 
-class FuncBody(Ast):
-    def __init__(self, params, block):
-        self.params: list[str] | VarargList | Varargs = params
-        self.block: Block = block
+class FuncBody(Ast, AsList):
+    def __init__(self, children: list):
+        self.block: Block
+        self.params: ParamList | None = None
+
+        if len(children) == 1:
+            self.block = children[0]
+        elif len(children) == 2:
+            self.params = children[0]
+            self.block = children[1]
+        else:
+            raise InternalCompilerError("Illegal function body: illegal number of children.")
 
 
 class FuncDef(Ast, Expression):
@@ -450,28 +459,30 @@ class FuncDef(Ast, Expression):
         fixed_params: int = 0
         is_variadic: bool = False
 
-        if isinstance(params, list) or (is_variadic := isinstance(params, VarargList)):
-            if is_variadic:
-                params = params.names
+        if params:
+            if isinstance(params, list) or (is_variadic := isinstance(params, VarargList)):
+                if is_variadic:
+                    params = params.names
 
-            fixed_params = len(params)
-            for param in reversed(params):
-                local_index = proto.get_local_index(param)
-                proto.add_opcode(f"local_store {local_index}")
+                fixed_params = len(params)
+                for param in reversed(params):
+                    local_index = proto.get_local_index(param)
+                    proto.add_opcode(f"local_store {local_index}")
 
-            if is_variadic:
+                if is_variadic:
+                    proto.add_opcode("pack_varargs")
+            elif isinstance(params, Varargs):
+                is_variadic = True
                 proto.add_opcode("pack_varargs")
-        elif isinstance(params, Varargs):
-            is_variadic = True
-            proto.add_opcode("pack_varargs")
-        else:
-            raise InternalCompilerError("Illegal function definition: illegal type of parameters.")
+            else:
+                raise InternalCompilerError("Illegal function definition: illegal type of parameters.")
         proto.fixed_params = fixed_params
         proto.is_variadic = is_variadic
 
         for statement in body.statements:
             statement.emit(state)
-        proto.add_opcode("return")
+        if body.statements and not isinstance(body.statements[-1], ReturnStmt):
+            proto.add_opcode("return 1")
 
         proto.blocks.pop()
 
@@ -519,10 +530,15 @@ class ReturnStmt(Ast, Statement):
         last_index = len(self.exprs) - 1
         for i, expr in enumerate(self.exprs):
             if isinstance(expr, MultiresExpression):
-                size = -1 if (i == last_index) else 1
+                size = 0 if (i == last_index) else 2
                 eval_multires_expr(state, expr, size)
             else:
                 expr.evaluate(state)
+
+        return_count: int = len(self.exprs) + 1
+        if isinstance(self.exprs[last_index], MultiresExpression):
+            return_count = 0
+        state.proto.add_opcode(f"return {return_count}")
 
 
 @dataclass
@@ -679,7 +695,7 @@ class Chunk(Ast):
     def emit(self) -> Program:
         program_state = _ProgramState()
         func_name = "$main"
-        func_body = FuncBody(Varargs(), self.block)
+        func_body = FuncBody([Varargs(), self.block])
         func_def = FuncDef(func_body, func_name)
         program_state.push_proto(func_name)
         func_def.evaluate(program_state)

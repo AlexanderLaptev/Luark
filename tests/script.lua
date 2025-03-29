@@ -1,6 +1,3 @@
-function foo(a, b, c)
-    local x = a + b * c
-    return x, y, f()
+function foo()
+    return 1
 end
-
-foo()
