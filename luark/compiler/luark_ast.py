@@ -13,13 +13,23 @@ from luark.compiler.program import Program, Prototype
 # TODO: refactor type hints
 # TODO: add debug metadata for locals (names, lines, etc.)
 
+@dataclass
+class _LocalVar:
+    index: int
+    is_const: bool = False
+
+    def __str__(self):
+        return str(self.index)
+
+
 class _BlockState:  # TODO: rename to Scope?
     def __init__(self):
-        self.locals: dict[str, int] = {}  # TODO: free local variable slots when the block is popped?
+        self.locals: dict[str, _LocalVar] = {}  # TODO: free local variable slots when the block is popped?
         self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler  # TODO: rename to temp?
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
         self.gotos = {}
+        self.tbc_locals: list[int] = []
 
 
 ConstType = int | float | str
@@ -64,10 +74,10 @@ class _ProtoState:
 
     def get_local_index(self, own_name: str) -> int:
         if own_name in self.block.locals:
-            return self.block.locals[own_name]
+            return self.block.locals[own_name].index
         index = self.num_locals
         self.num_locals += 1
-        self.block.locals[own_name] = index
+        self.block.locals[own_name] = _LocalVar(index)
         return index
 
     def add_aux_local(self) -> int:
@@ -319,11 +329,6 @@ class Varargs(Ast, MultiresExpression):
 
 class AttribName(Ast):
     def __init__(self, name: str, attribute: str | None = None):
-        # TODO!
-        # Only <const> and <close> are allowed by the spec.
-        if attribute:
-            raise NotImplementedError
-
         self.name = name
         self.attribute = attribute
 
@@ -334,12 +339,27 @@ class LocalAssignStmt(Ast, Statement):
     exprs: list[Expression]
 
     def emit(self, state: _ProgramState):
+        has_tbc_var: bool = False
+
         adjust_expr_list(state, len(self.names), self.exprs)
         for attr_name in self.names[::-1]:
+            # TODO: don't add locals directly
             local_index = state.proto.num_locals
-            state.proto.block.locals[attr_name.name] = local_index
-            state.proto.add_opcode(f"store_local {local_index}")
+            state.proto.block.locals[attr_name.name] = _LocalVar(local_index)
+            # Only <const> and <close> are allowed by the spec.
+            if attr_name.attribute:
+                if attr_name.attribute == "close":
+                    if has_tbc_var:
+                        raise CompilationError("Var list already contains a to-be-closed variable.")
+                    has_tbc_var = True
+                    state.proto.block.tbc_locals.append(local_index)
+                elif attr_name.attribute == "const":
+                    state.proto.block.locals[attr_name.name].is_const = True
+                else:
+                    raise CompilationError(f"Unsupported attribute: <{attr_name.attribute}>.")
+
             state.proto.num_locals += 1
+            state.proto.add_opcode(f"store_local {local_index}")
 
 
 @dataclass
@@ -551,6 +571,7 @@ class FuncDefStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         if isinstance(self.name, MethodName):
+            # TODO: refactor
             params = self.body.params
             if isinstance(params, list):
                 params.insert(0, "self")
@@ -877,6 +898,7 @@ class Label(Ast, Statement):
         state.proto.add_label(self.name)
 
 
+# TODO: ensure correct analysis of local scope
 @dataclass
 class GotoStmt(Ast, Statement):
     label: str
