@@ -1,2 +1,2 @@
-function foo.bar.baz() end
-function foo.bar:baz() a(self) end
+foo:bar()
+foo(1, 2, "bar")

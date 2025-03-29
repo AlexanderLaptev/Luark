@@ -12,6 +12,8 @@ from luark.compiler.program import Program, Prototype
 
 # TODO: refactor type hints
 # TODO: add debug metadata for locals (names, lines, etc.)
+# TODO: refactor multires expressions
+# TODO: code cleanup
 
 @dataclass
 class _LocalVar:
@@ -556,7 +558,8 @@ class FuncDef(Ast, Expression):
 
         state.pop_block()
         state.pop_proto()
-        state.proto.add_opcode(f"closure {proto_index}")
+        if state.stack:  # TODO: refactor chunk compilation to skip creating closure
+            state.proto.add_opcode(f"closure {proto_index}")
 
 
 @dataclass
@@ -661,14 +664,28 @@ class TableConstructor(Ast, AsList, Expression):
                     proto.add_opcode("store_list 1")
 
 
+class FuncCallParams(Ast):
+    exprs: list[Expression]
+
+    def __init__(self, child):
+        if not child:
+            self.exprs = []
+        else:
+            if isinstance(child, list):
+                self.exprs = child
+            else:
+                self.exprs = [child]
+
+
 @dataclass
 class FuncCall(Ast, Statement, Expression, MultiresExpression):
     primary: Expression
-    params: list[Expression] | TableConstructor | String = None
+    params: FuncCallParams
 
     def emit(self, state: _ProgramState):
         self.evaluate(state, 1)
 
+    # TODO: refactor and remove *args, **kwargs
     def evaluate(self, state: _ProgramState, *args, **kwargs):
         self.primary.evaluate(state)
 
@@ -678,18 +695,36 @@ class FuncCall(Ast, Statement, Expression, MultiresExpression):
                 raise InternalCompilerError("Illegal function call: illegal return count.")
             return_count = args[0]
 
-        param_count: int = 0
-        if self.params:
-            if isinstance(self.params, list):
-                param_count = len(self.params)
-                expr: Expression
-                for expr in self.params:
-                    expr.evaluate(state)
-            elif isinstance(self.params, String) or isinstance(self.params, TableConstructor):
-                param_count = 1
-                self.params.evaluate(state)
-            else:
-                raise InternalCompilerError("Illegal function call: illegal type of parameters.")
+        # TODO: support varargs
+        param_count: int = len(self.params.exprs)
+        for expr in self.params.exprs:
+            expr.evaluate(state)
+
+        state.proto.add_opcode(f"call {param_count} {return_count}")
+
+
+class MethodCall(FuncCall):  # TODO: does it really need to inherit FuncCall?
+    def __init__(self, primary: Expression, name: str, params: FuncCallParams):
+        self.primary = primary
+        self.name = name
+        self.params = params
+
+    def evaluate(self, state: _ProgramState, *args, **kwargs):
+        obj_index = state.proto.add_aux_local()
+        self.primary.evaluate(state)
+        state.proto.add_opcode(f"store_local {obj_index}")
+
+        return_count: int = 1
+        if args:
+            if not isinstance(args[0], int):
+                raise InternalCompilerError("Illegal function call: illegal return count.")
+            return_count = args[0]
+
+        # TODO: support varargs
+        param_count: int = len(self.params.exprs) + 1
+        state.proto.add_opcode(f"load_local {obj_index}")
+        for expr in self.params.exprs:
+            expr.evaluate(state)
 
         state.proto.add_opcode(f"call {param_count} {return_count}")
 
@@ -915,10 +950,7 @@ class Chunk(Ast):
         func_name = "$main"
         func_body = FuncBody(ParamList([Varargs()]), self.block)
         func_def = FuncDef(func_body, func_name)
-        program_state.push_proto(func_name)
         func_def.evaluate(program_state)
-        program_state.proto.pop_opcode()
-        program_state.pop_proto()
         return program_state.compile()
 
 
