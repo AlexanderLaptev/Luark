@@ -18,6 +18,8 @@ class _BlockState:  # TODO: rename to Scope?
         self.locals: dict[str, int] = {}  # TODO: free local variable slots when the block is popped?
         self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler  # TODO: rename to temp?
         self.breaks: list[int] = []
+        self.labels: dict[str, int] = {}
+        self.gotos = {}
 
 
 ConstType = int | float | str
@@ -74,9 +76,25 @@ class _ProtoState:
         self.num_locals += 1
         return index
 
+    def add_label(self, name: str):
+        if name not in self.block.labels:
+            self.block.labels[name] = self.pc
+        else:
+            raise CompilationError(f"Label {name} is already defined.")
+
+    def get_label_target(self, name: str):
+        if name in self.block.labels:
+            return self.block.labels[name]
+        else:
+            raise CompilationError(f"Label {name} is not defined.")
+
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
         self.pc += 1
+
+    def add_goto(self, label: str):
+        self.block.gotos[self.pc] = (label, len(self.block.locals))
+        self.add_opcode(None)
 
     def compile(self) -> Prototype:
         prototype = Prototype()
@@ -456,7 +474,7 @@ class FuncDef(Ast, Expression):
             self.name = f"$lambda#{my_number}"
 
         proto = state.proto
-        state.push_block()
+        block = state.push_block()
 
         body = self.body.block
         params = self.body.params
@@ -487,6 +505,13 @@ class FuncDef(Ast, Expression):
             statement.emit(state)
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
             proto.add_opcode("return 1")
+
+        # Close all goto's
+        for pc, data in block.gotos.items():
+            name, locals_count = data
+            if proto.num_locals != locals_count:
+                raise CompilationError("Cannot jump into a scope of a local variable.")
+            proto.opcodes[pc] = f"jump {block.labels[name] - pc}"
 
         state.pop_block()
 
@@ -814,6 +839,22 @@ class ForLoopGen(Ast, Statement):
             proto.opcodes[br] = f"jump {proto.pc - br}"
 
         state.pop_block()
+
+
+@dataclass
+class Label(Ast, Statement):
+    name: str
+
+    def emit(self, state: _ProgramState):
+        state.proto.add_label(self.name)
+
+
+@dataclass
+class GotoStmt(Ast, Statement):
+    label: str
+
+    def emit(self, state: _ProgramState):
+        state.proto.add_goto(self.label)
 
 
 @dataclass
