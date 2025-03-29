@@ -19,7 +19,7 @@ class _BlockState:  # TODO: rename to Scope?
         self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler  # TODO: rename to temp?
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
-        self.gotos: dict[int, str] = {}
+        self.gotos = {}
 
 
 ConstType = int | float | str
@@ -93,7 +93,7 @@ class _ProtoState:
         self.pc += 1
 
     def add_goto(self, label: str):
-        self.block.gotos[self.pc] = label
+        self.block.gotos[self.pc] = (label, len(self.block.locals))
         self.add_opcode(None)
 
     def compile(self) -> Prototype:
@@ -507,8 +507,11 @@ class FuncDef(Ast, Expression):
             proto.add_opcode("return 1")
 
         # Close all goto's
-        for pc, label in block.gotos.items():
-            proto.opcodes[pc] = f"jump {block.labels[label] - pc}"
+        for pc, data in block.gotos.items():
+            name, locals_count = data
+            if proto.num_locals != locals_count:
+                raise CompilationError("Cannot jump into a scope of a local variable.")
+            proto.opcodes[pc] = f"jump {block.labels[name] - pc}"
 
         state.pop_block()
 
