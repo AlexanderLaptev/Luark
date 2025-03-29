@@ -694,10 +694,9 @@ class FuncCall(Ast, Statement, Expression, MultiresExpression):
                 expr: Expression
                 for expr in self.params:
                     expr.evaluate(state)
-            elif isinstance(self.params, String):
+            elif isinstance(self.params, String) or isinstance(self.params, TableConstructor):
                 param_count = 1
                 self.params.evaluate(state)
-            # TODO: table constructors
             else:
                 raise InternalCompilerError("Illegal function call: illegal type of parameters.")
 
