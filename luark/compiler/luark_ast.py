@@ -277,7 +277,7 @@ class Varargs(Ast, MultiresExpression):
 
 
 class AttribName(Ast):
-    def __init__(self, name: str, attribute: str = None):
+    def __init__(self, name: str, attribute: str | None):
         # TODO!
         # Only <const> and <close> are allowed by the spec.
         if attribute:
@@ -290,7 +290,7 @@ class AttribName(Ast):
 @dataclass
 class LocalAssignStmt(Ast, Statement):
     names: list[AttribName]
-    exprs: list[Expression] = None
+    exprs: list[Expression]
 
     def emit(self, state: _ProgramState):
         adjust_expr_list(state, len(self.names), self.exprs)
@@ -426,18 +426,10 @@ class VarargList(Ast, AsList):
 ParamList = list[str] | VarargList | Varargs
 
 
+@dataclass
 class FuncBody(Ast, AsList):
-    def __init__(self, children: list):
-        self.block: Block
-        self.params: ParamList | None = None
-
-        if len(children) == 1:
-            self.block = children[0]
-        elif len(children) == 2:
-            self.params = children[0]
-            self.block = children[1]
-        else:
-            raise InternalCompilerError("Illegal function body: illegal number of children.")
+    params: ParamList | None
+    block: Block
 
 
 class FuncDef(Ast, Expression):
@@ -560,7 +552,7 @@ Field = Expression | ExprField | NameField
 
 @dataclass
 class TableConstructor(Ast, AsList, Expression):
-    fields: list[Field] | None = None
+    fields: list[Field] | None
 
     def evaluate(self, state: _ProgramState, *args, **kwargs):
         proto = state.proto
@@ -585,13 +577,13 @@ class TableConstructor(Ast, AsList, Expression):
                     eval_multires_expr(state, field, size)
                     proto.add_opcode(f"load_local {table_local}")
                     if size > 0:
-                        proto.add_opcode("store_list 2")
+                        proto.add_opcode("store_list 1")
                     else:
                         proto.add_opcode("store_list 0")
                 elif isinstance(field, Expression):
                     field.evaluate(state)
                     proto.add_opcode(f"load_local {table_local}")
-                    proto.add_opcode("store_list 2")
+                    proto.add_opcode("store_list 1")
 
 
 @dataclass
@@ -697,18 +689,9 @@ class IfStmt(Ast, AsList, Statement):
             raise InternalCompilerError("Illegal 'if' statement: non-block body.")
 
         self.elseifs: list[ElseIf] = []
-        self.elze: Block | None = None
-        for i in range(2, len(children)):
-            c = children[i]
-            if isinstance(c, ElseIf):
-                self.elseifs.append(c)
-            elif isinstance(c, Block):
-                if not self.elze:
-                    self.elze = c
-                else:
-                    raise InternalCompilerError("Illegal 'if' statement: 'else' block already exists.")
-            else:
-                raise InternalCompilerError("Illegal 'if' statement: illegal child node type.")
+        self.elze: Block | None = children[-1]
+        for i in range(2, len(children) - 1):
+            self.elseifs.append(children[i])
 
     def emit(self, state: _ProgramState):
         proto = state.proto
@@ -795,7 +778,7 @@ class Chunk(Ast):
     def emit(self) -> Program:
         program_state = _ProgramState()
         func_name = "$main"
-        func_body = FuncBody([Varargs(), self.block])
+        func_body = FuncBody(Varargs(), self.block)
         func_def = FuncDef(func_body, func_name)
         program_state.push_proto(func_name)
         func_def.evaluate(program_state)
