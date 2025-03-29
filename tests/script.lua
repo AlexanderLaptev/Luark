@@ -1,1 +1,8 @@
-for i,v in ipairs(a) do print(v) end
+foo()
+bar()
+goto label
+baz()
+qux()
+::label::
+quux()
+wux()
