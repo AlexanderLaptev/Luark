@@ -110,6 +110,14 @@ class _ProgramState:
     def pop_proto(self):
         self.stack.pop()
 
+    def push_block(self) -> _BlockState:
+        block = _BlockState()
+        self.proto.blocks.append(block)
+        return block
+
+    def pop_block(self):
+        self.proto.blocks.pop()
+
     def assign(self, name: str):
         self._resolve(name, False)
 
@@ -398,13 +406,15 @@ class AssignStmt(Ast, Statement):
 class Block(Ast, AsList):
     statements: list[Statement]
 
-    def emit(self, state: _ProgramState):
-        block = _BlockState()
-        state.proto.blocks.append(block)  # TODO: consider refactoring
+    def emit_block(self, state: _ProgramState):
+        block = state.push_block()
+        self.emit_statements(state)
+        state.pop_block()
+        return block
+
+    def emit_statements(self, state: _ProgramState):
         for statement in self.statements:
             statement.emit(state)
-        state.proto.blocks.pop()
-        return block
 
 
 @dataclass
@@ -445,8 +455,7 @@ class FuncDef(Ast, Expression):
             self.name = f"$lambda#{my_number}"
 
         proto = state.proto
-        block = _BlockState()
-        proto.blocks.append(block)
+        state.push_block()
 
         body = self.body.block
         params = self.body.params
@@ -478,7 +487,7 @@ class FuncDef(Ast, Expression):
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
             proto.add_opcode("return 1")
 
-        proto.blocks.pop()
+        state.pop_block()
 
 
 @dataclass
@@ -633,7 +642,7 @@ class WhileStmt(Ast, Statement):
         jump_pc = proto.pc
         proto.add_opcode(None)
 
-        body = self.block.emit(state)
+        body = self.block.emit_block(state)
         proto.add_opcode(f"jump {start - proto.pc}")
         block_end = proto.pc
 
@@ -648,18 +657,14 @@ class RepeatStmt(Ast, Statement):
     expr: Expression
 
     def emit(self, state: _ProgramState):
-        block = _BlockState()
-        state.proto.blocks.append(block)
-
+        state.push_block()
         start = state.proto.pc
-        for st in self.block.statements:
-            st.emit(state)
+        self.block.emit_statements(state)
         self.expr.evaluate(state)
         state.proto.add_opcode("test")
         end = state.proto.pc
         state.proto.add_opcode(f"jump {start - end}")
-
-        state.proto.blocks.pop()
+        state.pop_block()
 
 
 class BreakStmt(Ast, Statement):
@@ -701,7 +706,7 @@ class IfStmt(Ast, AsList, Statement):
         for i, el in enumerate(self.elseifs):
             self._emit_branch(state, el.condition, el.block, i == len(self.elseifs) - 1)
         if self.elze:
-            self.elze.emit(state)
+            self.elze.emit_block(state)
 
         for jump in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
             proto.opcodes[jump] = f"jump {proto.pc - jump}"
@@ -718,7 +723,7 @@ class IfStmt(Ast, AsList, Statement):
         proto.add_opcode("test")
         jump_pc = proto.pc
         proto.add_opcode(None)
-        block.emit(state)
+        block.emit_block(state)
         if not skip_end_jump:
             self.end_jumps.append(proto.pc)
             proto.add_opcode(None)
@@ -735,7 +740,9 @@ class ForLoopNum(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
+        block = state.push_block()
 
+        # TODO: make all local to body, not the current block
         control_index = proto.add_aux_local()
         proto.add_aux_local()
         proto.add_aux_local()
@@ -754,11 +761,12 @@ class ForLoopNum(Ast, Statement):
         escape_jump = proto.pc
         proto.add_opcode(None)
 
-        block = self.body.emit(state)
+        self.body.emit_statements(state)
         proto.add_opcode(f"jump {loop_start - proto.pc}")
         proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
         for br in block.breaks:
             proto.opcodes[br] = f"jump {proto.pc - br}"
+        state.pop_block()
 
 
 @dataclass
