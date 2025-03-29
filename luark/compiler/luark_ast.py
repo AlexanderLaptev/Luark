@@ -22,10 +22,10 @@ class _LocalVar:
         return str(self.index)
 
 
-class _BlockState:  # TODO: rename to Scope?
+class _BlockState:
     def __init__(self):
         self.locals: dict[str, _LocalVar] = {}  # TODO: free local variable slots when the block is popped?
-        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler  # TODO: rename to temp?
+        self.aux_locals: list[int] = []  # auxiliary locals are used by the compiler
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
         self.gotos = {}
@@ -111,8 +111,8 @@ class _ProtoState:
         prototype.func_name = self.func_name
         prototype.opcodes = self.opcodes
         prototype.num_locals = self.num_locals
-        prototype.consts = self.consts
-        prototype.upvalues = self.upvalues
+        prototype.consts = list(self.consts.keys())
+        prototype.upvalues = list(self.upvalues.keys())
         prototype.fixed_params = self.fixed_params
         prototype.is_variadic = self.is_variadic
         return prototype
@@ -333,6 +333,7 @@ class AttribName(Ast):
         self.attribute = attribute
 
 
+# TODO: implement to-be-closed variables
 @dataclass
 class LocalAssignStmt(Ast, Statement):
     names: list[AttribName]
@@ -460,15 +461,6 @@ class Block(Ast, AsList, Statement):
     statements: list[Statement]
 
     def emit(self, state: _ProgramState):
-        self.emit_block(state)
-
-    def emit_block(self, state: _ProgramState):
-        block = state.push_block()
-        self.emit_statements(state)
-        state.pop_block()
-        return block
-
-    def emit_statements(self, state: _ProgramState):
         for statement in self.statements:
             statement.emit(state)
 
@@ -548,7 +540,7 @@ class FuncDef(Ast, Expression):
         proto.fixed_params = fixed_params
         proto.is_variadic = is_variadic
 
-        body.emit_statements(state)
+        body.emit(state)
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
             proto.add_opcode("return 1")
 
@@ -694,10 +686,9 @@ class FuncCall(Ast, Statement, Expression, MultiresExpression):
                 expr: Expression
                 for expr in self.params:
                     expr.evaluate(state)
-            elif isinstance(self.params, String):
+            elif isinstance(self.params, String) or isinstance(self.params, TableConstructor):
                 param_count = 1
                 self.params.evaluate(state)
-            # TODO: table constructors
             else:
                 raise InternalCompilerError("Illegal function call: illegal type of parameters.")
 
@@ -717,12 +708,15 @@ class WhileStmt(Ast, Statement):
         jump_pc = proto.pc
         proto.add_opcode(None)
 
-        body = self.block.emit_block(state)
+        body_block = state.push_block()
+        self.block.emit(state)
+        state.pop_block()
+
         proto.add_opcode(f"jump {start - proto.pc}")
         block_end = proto.pc
 
         proto.opcodes[jump_pc] = f"jump {block_end - jump_pc}"
-        for br in body.breaks:
+        for br in body_block.breaks:
             proto.opcodes[br] = f"jump {block_end - br}"
 
 
@@ -734,7 +728,7 @@ class RepeatStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         state.push_block()
         start = state.proto.pc
-        self.block.emit_statements(state)
+        self.block.emit(state)
         self.expr.evaluate(state)
         state.proto.add_opcode("test")
         end = state.proto.pc
@@ -781,7 +775,9 @@ class IfStmt(Ast, AsList, Statement):
         for i, el in enumerate(self.elseifs):
             self._emit_branch(state, el.condition, el.block, i == len(self.elseifs) - 1)
         if self.elze:
-            self.elze.emit_block(state)
+            state.push_block()
+            self.elze.emit(state)
+            state.pop_block()
 
         for jump in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
             proto.opcodes[jump] = f"jump {proto.pc - jump}"
@@ -798,7 +794,11 @@ class IfStmt(Ast, AsList, Statement):
         proto.add_opcode("test")
         jump_pc = proto.pc
         proto.add_opcode(None)
-        block.emit_block(state)
+
+        state.push_block()
+        block.emit(state)
+        state.pop_block()
+
         if not skip_end_jump:
             self.end_jumps.append(proto.pc)
             proto.add_opcode(None)
@@ -836,7 +836,7 @@ class ForLoopNum(Ast, Statement):
         escape_jump = proto.pc
         proto.add_opcode(None)
 
-        self.body.emit_statements(state)
+        self.body.emit(state)
         proto.add_opcode(f"jump {loop_start - proto.pc}")
         proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
         for br in block.breaks:
@@ -881,7 +881,7 @@ class ForLoopGen(Ast, Statement):
         escape_jump = proto.pc
         proto.add_opcode(None)
 
-        self.body.emit_statements(state)
+        self.body.emit(state)
         proto.add_opcode(f"jump {loop_start - proto.pc}")
         proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
         for br in block.breaks:

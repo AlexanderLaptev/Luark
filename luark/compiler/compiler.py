@@ -17,7 +17,7 @@ class Compiler:
         path = Path(luark.compiler.compiler.__file__).parent / "grammar.lark"
         with open(path) as file:
             self.grammar = file.read()
-        self.lark = Lark(grammar=self.grammar, parser="lalr", debug=self.debug)
+        self.lark = Lark(grammar=self.grammar, parser="lalr", cache=True, debug=self.debug, propagate_positions=True)
         self.transformer = ast_utils.create_transformer(
             sys.modules[luark.compiler.luark_ast.__name__],
             LuarkTransformer(),

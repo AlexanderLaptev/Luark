@@ -1,25 +1,30 @@
 import os
-import time
+import traceback
 
-from luark.compiler import *
+from luark.compiler import Compiler
 
 compiler = Compiler()
 
-path = "../lua-5.4.7-tests"
-files = os.listdir(path)
-failed = 0
-start = time.time()
-for file in files:
-    full_path = os.path.join(path, file)
-    with open(full_path) as source_file:
-        source = source_file.read()
-        try:
-            compiler.compile_source(source)
-        except Exception as e:
-            failed += 1
-            print(f'{file} - FAIL: {str(e)}')
-end = time.time()
+TEST_DIR = "lua-5.4.7-tests"
 
-total = len(files)
-percent = int(round(failed / total * 100, 2))
-print(f'Done - {failed} ({percent}%) failed out of {len(files)} ({round((end - start) * 1000)} ms)')
+with open("REPORT.txt", "w") as report:
+    failed = 0
+    tests = os.listdir(TEST_DIR)
+    for test in tests:
+        file_path = os.path.join(TEST_DIR, test)
+        # noinspection PyBroadException
+        try:
+            report.write("\n==========================\n\n")
+            report.write(f">> Compiling '{test}'...\n")
+            compiler.compile_file(file_path)
+        except Exception as e:
+            report.write(f"'{test}' errored out!\n\n")
+            report.write(traceback.format_exc())
+            report.write("\n")
+            failed += 1
+        else:
+            report.write("Success!\n")
+
+    total = len(tests)
+    successful = total - failed
+    report.write(f"Compiled {successful} tests out of {total} ({failed} failed).\n")
