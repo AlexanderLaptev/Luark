@@ -477,7 +477,7 @@ class FuncName(Ast, AsList):
         if len(self.names) == 1:
             return Var(self.names[0])
         elif len(self.names) > 1:
-            result = DotAccess(String(self.names[0]), self.names[1])
+            result = DotAccess(Var(self.names[0]), self.names[1])
             for i in range(2, len(self.names)):
                 result = DotAccess(result, self.names[i])
             return result
@@ -517,8 +517,8 @@ class FuncBody(Ast):
 
 class FuncDef(Ast, Expression):
     def __init__(self, body: FuncBody, name: str = None):
-        self.body: FuncBody = body
-        self.name: str | None = name
+        self.body = body
+        self.name = name
 
     # TODO: define varargs order
     def evaluate(self, state: _ProgramState, *args, **kwargs):
@@ -566,7 +566,12 @@ class FuncDefStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         if isinstance(self.name, MethodName):
-            self.body.params.add_self()
+            if self.body.params:
+                self.body.params.add_self()
+            else:
+                params = ParamList([])
+                params.add_self()
+                self.body.params = params
 
         full_name = '.'.join(self.name.names)
         lvalue = self.name.to_lvalue()
