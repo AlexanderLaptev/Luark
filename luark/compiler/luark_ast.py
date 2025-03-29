@@ -592,7 +592,7 @@ class FuncCall(Ast, Statement, Expression, MultiresExpression):
     params: list[Expression] | TableConstructor | String = None
 
     def emit(self, state: _ProgramState):
-        self.evaluate(state, 0)
+        self.evaluate(state, 1)
 
     def evaluate(self, state: _ProgramState, *args, **kwargs):
         self.primary.evaluate(state)
