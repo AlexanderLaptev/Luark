@@ -4,7 +4,6 @@ start: SHEBANG? chunk
 chunk: block
 block: statement* return_stmt?
 
-name_list: ID ("," ID)*
 number: DEC_INT -> dec_int
     | DEC_FLOAT -> dec_float
     | HEX_NUMBER -> hex_number
@@ -99,19 +98,17 @@ _func_call_params: "(" expr_list? ")" | table_constructor | string
 
 func_def: "function" func_body
 func_body: "(" [param_list] ")" block "end"
-?param_list: name_list
-    | ID ("," ID)* "," "..." -> vararg_list
-    | varargs
+param_list: ID ("," ID)* ["," varargs] | varargs
 func_def_stmt: "function" func_name func_body
     | "local" "function" ID func_body -> local_func_def_stmt
-?func_name: ID ("." ID)*
+func_name: ID ("." ID)*
     | ID ("." ID)* ":" ID -> method_name
 
 if_stmt: "if" expr "then" block else_if* ["else" block] "end"
 else_if: "elseif" expr "then" block
 
 for_loop: "for" ID "=" expr "," expr ["," expr] "do" block "end" -> for_loop_num
-    | "for" name_list "in" expr_list "do" block "end" -> for_loop_gen
+    | "for" ID ("," ID)* "in" expr_list "do" block "end" -> for_loop_gen
 
 ID: /[^\W\d]\w*/
 SHEBANG: /^#(.*)/

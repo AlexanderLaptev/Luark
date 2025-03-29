@@ -35,6 +35,6 @@ class Program:
             if proto.is_variadic:
                 arg_string += ", ..."
             arg_string += ")"
-            out.append(f"[{i}]function {proto.func_name}{arg_string}:")
-            out.append(str(proto))
+            out.append(f"[{i}] function {proto.func_name}{arg_string}:")
+            out.append(str(proto) + "\n")
         return "\n".join(out)

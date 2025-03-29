@@ -1,13 +1,11 @@
-local x
+function foo() end
+function foo(...) end
+function foo(x) end
+function foo(x, y, z) end
+function foo(x, y, z, ...) end
 
-x = 1.35e2
-x = "hello"
-x = y
-x = function() foo() end
-x = bar()
-x = { "a", "b", "c" }
-x = (a + 2) * 5
-x = true
-x = false
-x = nil
-x = ...
+local function foo() end
+local function foo(...) end
+local function foo(x) end
+local function foo(x, y, z) end
+local function foo(x, y, z, ...) end

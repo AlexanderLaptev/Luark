@@ -102,6 +102,10 @@ class _ProtoState:
         self.opcodes.append(opcode)
         self.pc += 1
 
+    def pop_opcode(self):
+        self.opcodes.pop()
+        self.pc -= 1
+
     def add_goto(self, label: str):
         self.block.gotos[self.pc] = (label, len(self.block.locals))
         self.add_opcode(None)
@@ -485,12 +489,24 @@ class MethodName(FuncName):
     pass
 
 
-class VarargList(Ast, AsList):
+class ParamList(Ast, AsList):
+    names: list[str]
+    has_varargs: bool
+
     def __init__(self, children: list):
-        self.names: list[str] = children
+        self.names = []
+        self.has_varargs = False
 
+        for child in children:
+            if isinstance(child, str):
+                self.names.append(child)
+            elif isinstance(child, Varargs):
+                self.has_varargs = True
+            elif isinstance(child, list):
+                self.names = child
 
-ParamList = list[str] | VarargList | Varargs
+    def add_self(self):
+        self.names.insert(0, "self")
 
 
 @dataclass
@@ -517,28 +533,14 @@ class FuncDef(Ast, Expression):
 
         body = self.body.block
         params = self.body.params
-        fixed_params: int = 0
-        is_variadic: bool = False
 
         if params:
-            if isinstance(params, list) or (is_variadic := isinstance(params, VarargList)):
-                if is_variadic:
-                    params = params.names
+            proto.fixed_params = len(params.names)
+            proto.is_variadic = params.has_varargs
 
-                fixed_params = len(params)
-                for param in reversed(params):
-                    local_index = proto.get_local_index(param)
-                    proto.add_opcode(f"local_store {local_index}")
-
-                if is_variadic:
-                    proto.add_opcode("pack_varargs")
-            elif isinstance(params, Varargs):
-                is_variadic = True
-                proto.add_opcode("pack_varargs")
-            else:
-                raise InternalCompilerError("Illegal function definition: illegal type of parameters.")
-        proto.fixed_params = fixed_params
-        proto.is_variadic = is_variadic
+            for name in params.names:
+                local_index = proto.get_local_index(name)
+                proto.add_opcode(f"local_store {local_index}")
 
         body.emit(state)
         if body.statements and not isinstance(body.statements[-1], ReturnStmt):
@@ -554,6 +556,7 @@ class FuncDef(Ast, Expression):
 
         state.pop_block()
         state.pop_proto()
+        state.proto.add_opcode(f"closure {proto_index}")
 
 
 @dataclass
@@ -563,16 +566,7 @@ class FuncDefStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         if isinstance(self.name, MethodName):
-            # TODO: refactor
-            params = self.body.params
-            if isinstance(params, list):
-                params.insert(0, "self")
-            elif isinstance(params, VarargList):
-                params.names.insert(0, "self")
-            elif isinstance(params, Varargs):
-                self.body.params = VarargList(["self"])
-            else:
-                raise InternalCompilerError("Illegal function body.")
+            self.body.params.add_self()
 
         full_name = '.'.join(self.name.names)
         lvalue = self.name.to_lvalue()
@@ -914,10 +908,11 @@ class Chunk(Ast):
     def emit(self) -> Program:
         program_state = _ProgramState()
         func_name = "$main"
-        func_body = FuncBody(Varargs(), self.block)
+        func_body = FuncBody(ParamList([Varargs()]), self.block)
         func_def = FuncDef(func_body, func_name)
         program_state.push_proto(func_name)
         func_def.evaluate(program_state)
+        program_state.proto.pop_opcode()
         program_state.pop_proto()
         return program_state.compile()
 
