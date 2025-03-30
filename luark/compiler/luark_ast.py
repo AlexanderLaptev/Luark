@@ -137,6 +137,16 @@ class _ProtoState:
         self.opcodes.append(opcode)
         self._pc += 1
 
+    def add_jump(self, to: int, from_: int = None):
+        if not from_:
+            from_ = self._pc
+        self.add_opcode(f"jump {to - from_}")
+
+    def set_jump(self, jump_pc: int, target: int = None):
+        if not target:
+            target = self._pc
+        self.opcodes[jump_pc] = f"jump {target - jump_pc}"
+
     def pop_opcode(self):
         self.opcodes.pop()
         self._pc -= 1
@@ -649,7 +659,7 @@ class FuncDef(Ast, Expression):
             if proto.num_locals != locals_count:
                 raise CompilationError("Cannot jump into a scope of a local variable.")
             target = proto.get_label_target(name)
-            proto.opcodes[pc] = f"jump {target - pc}"
+            proto.set_jump(pc, target)
 
         state.pop_block()
         state.pop_proto()
@@ -845,12 +855,12 @@ class WhileStmt(Ast, Statement):
         self.block.emit(state)
         state.pop_block()
 
-        proto.add_opcode(f"jump {start - proto.pc}")
+        proto.add_jump(start)
         block_end = proto.pc
 
-        proto.opcodes[jump_pc] = f"jump {block_end - jump_pc}"
+        proto.set_jump(jump_pc, block_end)
         for br in body_block.breaks:
-            proto.opcodes[br] = f"jump {block_end - br}"
+            proto.set_jump(br, block_end)
 
 
 @dataclass
@@ -865,7 +875,7 @@ class RepeatStmt(Ast, Statement):
         self.expr.evaluate(state)
         state.proto.add_opcode("test")
         end = state.proto.pc
-        state.proto.add_opcode(f"jump {start - end}")
+        state.proto.add_jump(start, end)
         state.pop_block()
 
 
@@ -912,8 +922,8 @@ class IfStmt(Ast, AsList, Statement):
             self.elze.emit(state)
             state.pop_block()
 
-        for jump in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
-            proto.opcodes[jump] = f"jump {proto.pc - jump}"
+        for jump_pc in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
+            proto.set_jump(jump_pc)
 
     def _emit_branch(
             self,
@@ -935,7 +945,7 @@ class IfStmt(Ast, AsList, Statement):
         if not skip_end_jump:
             self.end_jumps.append(proto.pc)
             proto.add_opcode(None)
-        proto.opcodes[jump_pc] = f"jump {proto.pc - jump_pc}"
+        proto.set_jump(jump_pc)
 
 
 @dataclass
@@ -965,14 +975,14 @@ class ForLoopNum(Ast, Statement):
 
         loop_start = proto.pc
         proto.add_opcode(f"test_for_num {control_index}")
-        escape_jump = proto.pc
+        escape_jump_pc = proto.pc
         proto.add_opcode(None)
 
         self.body.emit(state)
-        proto.add_opcode(f"jump {loop_start - proto.pc}")
-        proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
+        proto.add_jump(loop_start)
+        proto.set_jump(escape_jump_pc)
         for br in block.breaks:
-            proto.opcodes[br] = f"jump {proto.pc - br}"
+            proto.set_jump(br)
         state.pop_block()
 
 
@@ -1014,10 +1024,10 @@ class ForLoopGen(Ast, Statement):
         proto.add_opcode(None)
 
         self.body.emit(state)
-        proto.add_opcode(f"jump {loop_start - proto.pc}")
-        proto.opcodes[escape_jump] = f"jump {proto.pc - escape_jump}"
+        proto.add_jump(loop_start)
+        proto.set_jump(escape_jump)
         for br in block.breaks:
-            proto.opcodes[br] = f"jump {proto.pc - br}"
+            proto.set_jump(br)
 
         state.pop_block()
 
