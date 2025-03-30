@@ -1194,22 +1194,14 @@ class LuarkTransformer(Transformer):
     def ID(self, s):
         return str(s)
 
-    # TODO: raise error on unknown escape sequences
-    # TODO: support \xXX, \ddd, \u{XXX}
-    def STRING(self, s):
-        s = ''.join([s.strip() for s in s.split("\\z")])
-        s = (str(s)[1:-1]
-             .replace("\\a", "\a")
-             .replace("\\b", "\b")
-             .replace("\\f", "\f")
-             .replace("\\n", "\n")
-             .replace("\\r", "\r")
-             .replace("\\t", "\t")
-             .replace("\\v", "\v")
-             .replace("\\\\", "\\")
-             .replace("\\\"", "\"")
-             .replace("\\\'", "\'")
-             .replace("\\\n", "\n"))
+    # TODO: raise error on invalid escape sequence
+    def STRING(self, s: str):
+        s = s[1:-1]  # strip quotes
+        s = s.split("\\z")
+        for i in range(1, len(s)):  # don't strip whitespace on the first line
+            s[i] = s[i].lstrip()  # strip whitespace only on the left
+        s = ''.join(s)
+        s = s.encode("utf_8").decode("unicode_escape")
         return s
 
     def MULTISTRING(self, s):
