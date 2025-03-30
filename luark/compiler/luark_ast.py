@@ -115,6 +115,9 @@ class _ProtoState:
         else:
             return self.new_local(name)
 
+    def get_local(self, index: int) -> LocalVar:
+        return self.block.current_locals.get_by_index(index)
+
     def new_temporary(self) -> int:
         var = LocalVar(None, self._next_local_index(), self._pc)
         self.block.current_locals.add(var)
@@ -461,8 +464,8 @@ class LocalAssignStmt(Ast, Statement):
                         raise CompilationError("Multiple to-be-closed variables in local list.")
                     tbc_index = local_index
                 case "const":
-                    # TODO: proper implementation of consts
-                    var = state.proto.block.current_locals.get_by_index(local_index)
+                    # TODO: support compile time consts
+                    var = state.proto.get_local(local_index)
                     var.is_const = True
                 case _:
                     raise CompilationError(f"Unknown attribute: '{attr_name.attribute}'.")
