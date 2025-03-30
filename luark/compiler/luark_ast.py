@@ -992,7 +992,7 @@ class LuarkTransformer(Transformer):
         elif len(num) == 2:
             return Number(int(num[0]) * 10 ** int(num[1]))
         else:
-            raise Exception(f"Illegal decimal integer literal: '{n}'")  # TODO: replace exception class
+            raise InternalCompilerError(f"Illegal decimal integer literal: '{n}'")
 
     def dec_float(self, f):
         num: str = f[0]
@@ -1002,7 +1002,7 @@ class LuarkTransformer(Transformer):
         elif len(num) == 2:
             return Number(float(num[0]) * 10 ** float(num[1]))
         else:
-            raise Exception(f"Illegal decimal float literal: '{f}'")
+            raise InternalCompilerError(f"Illegal decimal float literal: '{f}'")
 
     def empty_stmt(self, _):
         return Discard
