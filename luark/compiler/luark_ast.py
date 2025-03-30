@@ -74,7 +74,7 @@ class _ProtoState:
         self.consts[value] = index
         return index
 
-    def _make_local_index(self) -> int:
+    def _next_local_index(self) -> int:
         if not self.locals_pool:
             index = self.num_locals
             self.num_locals += 1
@@ -83,7 +83,7 @@ class _ProtoState:
             return self.locals_pool.pop()
 
     def new_local(self, name: str) -> int:
-        index = self._make_local_index()
+        index = self._next_local_index()
         self.block.current_locals.add(LocalVar(name, index, self.pc))
         return index
 
@@ -95,7 +95,7 @@ class _ProtoState:
             return self.new_local(name)
 
     def new_temporary(self) -> int:
-        var = LocalVar(None, self._make_local_index(), self.pc)
+        var = LocalVar(None, self._next_local_index(), self.pc)
         self.block.current_locals.add(var)
         return var.index
 
@@ -140,29 +140,35 @@ class _ProtoState:
 
 
 class _ProgramState:
+    protos: list[_ProtoState]
+    proto_stack: list[_ProtoState]
+    num_lambdas: int
+
     class _ResolveAction(Enum):
-        READ = auto()
-        WRITE = auto()
+        LOAD = auto()
+        STORE = auto()
 
     def __init__(self):
-        self.protos: list[_ProtoState] = []
-        self.stack: list[_ProtoState] = []
-
-        self.num_lambdas: int = 0
+        self.protos = []
+        self.proto_stack = []
+        self.num_lambdas = 0
 
     @property
     def proto(self) -> _ProtoState:
-        return self.stack[-1]
+        return self.proto_stack[-1]
 
-    def push_proto(self, func_name: str = None) -> int:
+    def push_proto(self, func_name: str = None) -> tuple[_ProtoState, int]:
         proto_state = _ProtoState(func_name)
         index = len(self.protos)
         self.protos.append(proto_state)
-        self.stack.append(proto_state)
-        return index
+        self.proto_stack.append(proto_state)
+        return proto_state, index
 
     def pop_proto(self):
-        self.stack.pop()
+        self.proto_stack.pop()
+
+    def get_proto(self, index: int) -> _ProtoState:
+        return self.protos[index]
 
     def push_block(self) -> _BlockState:
         block = _BlockState()
@@ -179,15 +185,15 @@ class _ProgramState:
         self.proto.locals.merge(block.current_locals)
 
     def read(self, name: str):
-        self._resolve(name, self._ResolveAction.READ)
+        self._resolve(name, self._ResolveAction.LOAD)
 
     def assign(self, name: str):
-        self._resolve(name, self._ResolveAction.WRITE)
+        self._resolve(name, self._ResolveAction.STORE)
 
     def _resolve(self, name: str, action: _ResolveAction):
         current_proto = self.proto
         visited_protos = []  # these protos may need an upvalue passed down to them
-        for proto in reversed(self.stack):
+        for proto in reversed(self.proto_stack):
             visited_protos.append(proto)
             upvalue = self.proto != proto  # upvalues are locals from an enclosing function
             for block in reversed(proto.blocks):
@@ -200,7 +206,7 @@ class _ProgramState:
                         upvalue_index = current_proto.get_upvalue_index(name)
 
                         opcode: str
-                        if action == self._ResolveAction.READ:
+                        if action == self._ResolveAction.LOAD:
                             opcode = "load_upvalue"
                         else:
                             opcode = "store_upvalue"
@@ -211,7 +217,7 @@ class _ProgramState:
                         index = block.current_locals.get_by_name(name)[-1].index
 
                         opcode: str
-                        if action == self._ResolveAction.READ:
+                        if action == self._ResolveAction.LOAD:
                             opcode = "load_local"
                         else:
                             opcode = "store_local"
@@ -222,7 +228,7 @@ class _ProgramState:
         # If we could not find the local either in the same function or
         # in any of the enclosing ones, treat the variable as a global.
         env_index: int
-        for proto in self.stack:
+        for proto in self.proto_stack:
             env_index = proto.get_upvalue_index("_ENV")
         name_index = current_proto.get_const_index(name)
         # noinspection PyUnboundLocalVariable
@@ -230,7 +236,7 @@ class _ProgramState:
         current_proto.add_opcode(f"push_const {name_index}")
 
         opcode: str
-        if action == self._ResolveAction.READ:
+        if action == self._ResolveAction.LOAD:
             opcode = "get_table"
         else:
             opcode = "set_table"
@@ -241,6 +247,11 @@ class _ProgramState:
         for proto in self.protos:
             program.prototypes.append(proto.compile())
         return program
+
+    def next_lambda_index(self) -> int:
+        index = self.num_lambdas
+        self.num_lambdas += 1
+        return index
 
 
 class Statement(ABC):
@@ -591,12 +602,10 @@ class FuncDef(Ast, Expression):
     # TODO: define varargs order
     def evaluate(self, state: _ProgramState):
         if not self.name:
-            my_number = state.num_lambdas
-            state.num_lambdas += 1
+            my_number = state.next_lambda_index()
             self.name = f"$lambda#{my_number}"
 
-        proto_index = state.push_proto(self.name)
-        proto = state.protos[proto_index]
+        proto, proto_index = state.push_proto(self.name)
         block = state.push_block()
 
         body = self.body.block
@@ -624,7 +633,7 @@ class FuncDef(Ast, Expression):
 
         state.pop_block()
         state.pop_proto()
-        if state.stack:  # TODO: refactor chunk compilation to skip creating closure
+        if state.proto_stack:  # TODO: refactor chunk compilation to skip creating closure
             state.proto.add_opcode(f"closure {proto_index}")
 
 
@@ -1020,7 +1029,7 @@ class Chunk(Ast):
         func_body = FuncBody(ParamList([Varargs()]), self.block)
         func_def = FuncDef(func_body, func_name)
         func_def.evaluate(program_state)
-        program_state.protos[0].get_upvalue_index("_ENV")
+        program_state.get_proto(0).get_upvalue_index("_ENV")
         return program_state.compile()
 
 
