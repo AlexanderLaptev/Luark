@@ -364,6 +364,7 @@ def adjust_static(
             expr: MultiresExpression = expr_list[-1]
             expr.evaluate(state, 2 + difference)
         else:
+            evaluate_single(state, expr_list[-1])
             for _ in range(difference):
                 state.proto.add_opcode("push_nil")
     else:
@@ -527,6 +528,12 @@ class LocalAssignStmt(Ast, Statement):
 @dataclass
 class Var(Ast, Expression):
     name: str
+
+    def __init__(self, name: str):
+        match name:
+            case "nil" | "true" | "false":
+                raise CompilationError(f"Syntax error near '{name}'.")
+        self.name = name
 
     def evaluate(self, state: _ProgramState):
         state.read(state, self.name)
@@ -904,7 +911,7 @@ class MethodCall(FuncCall):
 
 @dataclass
 class Primary(Ast, Expression):
-    child: Var | FuncCall | Expression
+    child: Expression
 
     def evaluate(self, state: _ProgramState):
         evaluate_single(state, self.child)

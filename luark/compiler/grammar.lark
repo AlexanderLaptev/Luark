@@ -60,8 +60,6 @@ _field_list: field (("," | ";") field)* ("," | ";")?
 ?exp_expr: literal
     | literal "^" unary_expr
 ?literal: primary
-    | func_call
-    | var
     | number
     | string
     | func_def
@@ -70,8 +68,9 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | "false" -> false
     | "nil" -> nil
     | varargs
-primary.10: var
-    | "(" expr ")"
+?primary.10: var
+    | func_call
+    | "(" expr ")" -> primary
 expr_list: expr ("," expr)*
 
 ?statement: ";" -> empty_stmt
