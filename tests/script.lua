@@ -1,2 +1,4 @@
-a = 'test\131world\z
-    tes\qt test'
+if 1 then foo()
+elseif 2 then bar()
+elseif 3 then baz()
+else quz() end

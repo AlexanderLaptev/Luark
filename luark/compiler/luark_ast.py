@@ -152,7 +152,7 @@ class _ProtoState:
 
     def set_jump(self, jump_pc: int, target: int = None):
         if not target:
-            target = self._pc + 1
+            target = self._pc
         self.opcodes[jump_pc] = f"jump {target - jump_pc}"
 
     def pop_opcode(self):
@@ -191,8 +191,11 @@ class _ProgramState:
         self.num_lambdas = 0
 
     @property
-    def proto(self) -> _ProtoState:
-        return self.proto_stack[-1]
+    def proto(self) -> _ProtoState | None:
+        if self.proto_stack:
+            return self.proto_stack[-1]
+        else:
+            return None
 
     def push_proto(self, func_name: str = None) -> tuple[_ProtoState, int]:
         proto_state = _ProtoState(func_name)
@@ -724,7 +727,7 @@ class FuncDef(Ast, Expression):
 
         state.pop_block()
         state.pop_proto()
-        if state.proto_stack:  # TODO: refactor chunk compilation to skip creating closure
+        if state.proto:
             state.proto.add_opcode(f"closure {proto_index}")
 
 
@@ -989,7 +992,7 @@ class IfStmt(Ast, AsList, Statement):
             self.elze.emit(state)
             state.pop_block()
 
-        for jump_pc in self.end_jumps:  # TODO: remove "jump 1" when "else" block is missing
+        for jump_pc in self.end_jumps:
             proto.set_jump(jump_pc)
 
     def _emit_branch(
@@ -1000,10 +1003,9 @@ class IfStmt(Ast, AsList, Statement):
             skip_end_jump: bool
     ):
         proto = state.proto
-        condition.evaluate(state)
+        evaluate_single(state, condition)
         proto.add_opcode("test")
-        jump_pc = proto.pc
-        proto.add_opcode(None)
+        jump_pc = proto.reserve_opcodes(1)
 
         state.push_block()
         block.emit(state)
@@ -1011,7 +1013,7 @@ class IfStmt(Ast, AsList, Statement):
 
         if not skip_end_jump:
             self.end_jumps.append(proto.pc)
-            proto.add_opcode(None)
+            proto.reserve_opcodes(1)
         proto.set_jump(jump_pc)
 
 
