@@ -1,3 +1,1 @@
-for i = abc(), 2*5 do
-    test()
-end
+for k, a, b, c in pairs(t) do print(k) end

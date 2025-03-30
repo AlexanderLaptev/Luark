@@ -1008,10 +1008,15 @@ class ForLoopNum(Ast, Statement):
 
 
 @dataclass
-class ForLoopGen(Ast, Statement):
+class ForLoopGen(Ast, AsList, Statement):
     name_list: list[str]
     expr_list: list[Expression | MultiresExpression]
     body: Block
+
+    def __init__(self, children: list):
+        self.name_list = children[0:-2]
+        self.expr_list = children[-2]
+        self.body = children[-1]
 
     def emit(self, state: _ProgramState):
         proto = state.proto
