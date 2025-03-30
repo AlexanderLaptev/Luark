@@ -876,7 +876,6 @@ class ForLoopNum(Ast, Statement):
         proto = state.proto
         block = state.push_block()
 
-        # TODO: make all local to body, not the current block
         control_index = proto.new_temporary()
         proto.new_temporary()
         proto.new_temporary()

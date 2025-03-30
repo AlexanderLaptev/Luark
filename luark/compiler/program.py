@@ -71,7 +71,8 @@ class Prototype:
     def __str__(self) -> str:
         out = [f"\tlocals({self.num_locals}):"]
         for var in self.locals:
-            out.append(f"\t\t{var.name}[{var.index}] - {var.start}:{var.end}")
+            name = var.name if var.name else "(temp)"
+            out.append(f"\t\t{name}[{var.index}] - {var.start}:{var.end}")
 
         out.append("\tupvalues:")
         for i, upvalue in enumerate(self.upvalues):
