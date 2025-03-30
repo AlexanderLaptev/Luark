@@ -1,4 +1,3 @@
-local a <const>, b <const> = foo(), 5
-x = a + b
-local b <const> = 11
-x = a + b
+function foo(x, y, ...)
+    return x, y + 2, ..., 5
+end

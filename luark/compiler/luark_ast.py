@@ -11,12 +11,10 @@ from luark.compiler.errors import InternalCompilerError, CompilationError
 from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex, ConstValue
 
 
-# TODO: refactor type hints
 # TODO: refactor multires expressions
 # TODO: code cleanup
 # TODO: add upvalue metadata
 # TODO: use evaluate_single() everywhere
-# TODO: fix FuncCall opcode order
 
 
 class _BlockState:
@@ -332,8 +330,10 @@ class MultiresExpression(ABC):
 
 
 def evaluate_single(state: _ProgramState, expr: Expression | MultiresExpression):
-    if isinstance(expr, MultiresExpression):  # function/method calls and varargs
+    if isinstance(expr, FuncCall):  # function/method calls
         expr.evaluate(state, 2)
+    elif isinstance(expr, Varargs):
+        expr.evaluate(state, 1)
     elif isinstance(expr, Expression):  # standard singleres expression
         expr.evaluate(state)
     else:
@@ -355,8 +355,16 @@ def adjust_static(
     # We still need to specify how many values
     # we expect to receive in the end.
 
+    if count == 0:
+        raise InternalCompilerError("Attempted to statically adjust to count of 0")
+
     difference = count - len(expr_list)
     if difference > 0:  # append nils
+        if expr_list and isinstance(expr_list[-1], MultiresExpression):
+            expr: MultiresExpression = expr_list[-1]
+            expr.evaluate(state, 1 + count)
+            return
+
         for expr in expr_list:
             evaluate_single(state, expr)
         for _ in range(difference):
@@ -456,6 +464,8 @@ class UnaryExpression(Expression):
 
 class Varargs(Ast, MultiresExpression):
     def evaluate(self, state: _ProgramState, return_count: int):
+        if not state.proto.is_variadic:
+            raise CompilationError("Cannot access varargs from a non-variadic function.")
         state.proto.add_opcode(f"get_varargs {return_count}")
 
 
@@ -629,7 +639,7 @@ class Block(Ast, AsList, Statement):
                 statement.emit(state)
                 state.pop_block()
             elif isinstance(statement, FuncCall):
-                statement.evaluate(state, 0)
+                statement.evaluate(state, 1)
             else:
                 statement.emit(state)
 
@@ -706,7 +716,7 @@ class FuncDef(Ast, Expression):
                 proto.add_opcode(f"store_local {local_index}")
 
         body.emit(state)
-        if body.statements and not isinstance(body.statements[-1], ReturnStmt):
+        if not body.statements or not isinstance(body.statements[-1], ReturnStmt):
             proto.add_opcode("return 1")
 
         # Close all goto's
@@ -761,18 +771,21 @@ class ReturnStmt(Ast, Statement):
         self.exprs: list[Expression] | None = exprs
 
     def emit(self, state: _ProgramState):
-        last_index = len(self.exprs) - 1
-        for i, expr in enumerate(self.exprs):
-            if isinstance(expr, MultiresExpression):
-                size = 0 if (i == last_index) else 2
-                expr.evaluate(state, size)
-            else:
-                expr.evaluate(state)
+        exprs = self.exprs if self.exprs else []
+        if exprs:
+            for i in range(len(exprs) - 1):
+                expr = exprs[i]
+                evaluate_single(state, expr)
 
-        return_count: int = len(self.exprs) + 1
-        if isinstance(self.exprs[last_index], MultiresExpression):
-            return_count = 0
-        state.proto.add_opcode(f"return {return_count}")
+            last = exprs[-1]
+            if isinstance(last, MultiresExpression):
+                last.evaluate(state, 0)
+                state.proto.add_opcode("return 0")
+            else:
+                evaluate_single(state, last)
+                state.proto.add_opcode(f"return {1 + len(exprs)}")
+        else:
+            state.proto.add_opcode("return 1")
 
 
 @dataclass
@@ -848,37 +861,26 @@ class FuncCall(Ast, MultiresExpression):
         self.params = params
 
     def evaluate(self, state: _ProgramState, return_count: int = 1):
-        index = self._eval_primary(state)
-
-        param_count: int = self._get_param_count()
-        last = len(self.params.exprs) - 1
-        self._push_self(state, index)
-        for i in range(len(self.params.exprs)):
-            expr = self.params.exprs[i]
-            if i == last:
-                if isinstance(expr, Varargs):
-                    param_count = 0
-                    state.proto.add_opcode("get_varargs 0")
-                else:
-                    expr.evaluate(state)
-            else:
-                if isinstance(expr, Varargs):
-                    state.proto.add_opcode("get_varargs 1")
-                else:
-                    expr.evaluate(state)
-
-        state.proto.add_opcode(f"call {param_count} {return_count}")
-
-    # noinspection PyTypeChecker
-    def _eval_primary(self, state: _ProgramState) -> int:
+        proto = state.proto
+        param_count = self._eval_params(state)
         self.primary.evaluate(state)
-        return None
+        proto.add_opcode(f"call {param_count} {return_count}")
 
-    def _push_self(self, state: _ProgramState, index: int | None):
-        pass
+    def _eval_params(self, state):
+        exprs = self.params.exprs
+        param_count: int = 1 + len(exprs)
+        if exprs:
+            for i in range(len(exprs) - 1):
+                expr = exprs[i]
+                evaluate_single(state, expr)
 
-    def _get_param_count(self):
-        return len(self.params.exprs) + 1
+            last = exprs[-1]
+            if isinstance(last, MultiresExpression):
+                last.evaluate(state, 0)
+                param_count = 0
+            else:
+                evaluate_single(state, last)
+        return param_count
 
 
 class MethodCall(FuncCall):
@@ -886,13 +888,27 @@ class MethodCall(FuncCall):
         super().__init__(primary, params)
         self.name = name
 
-    def _eval_primary(self, state: _ProgramState):
-        obj_index = state.proto.new_temporary()
-        self.primary.evaluate(state)
-        state.proto.add_opcode(f"store_local {obj_index}")
+    def evaluate(self, state: _ProgramState, return_count: int = 1):
+        proto = state.proto
 
-    def _push_self(self, state: _ProgramState, index: int | None):
-        state.proto.add_opcode(f"load_local {index}")
+        evaluate_single(state, self.primary)
+        self_index = proto.new_temporary()
+        proto.add_opcode(f"store_local {self_index}")
+
+        proto.add_opcode(f"load_local {self_index}")
+        param_count = self._eval_params(state)
+        self.primary.evaluate(state)
+        proto.add_opcode(f"call {param_count} {return_count}")
+
+        proto.release_local(self_index)
+
+
+@dataclass
+class Primary(Ast, Expression):
+    child: Var | FuncCall | Expression
+
+    def evaluate(self, state: _ProgramState):
+        evaluate_single(state, self.child)
 
 
 @dataclass
