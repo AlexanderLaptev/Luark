@@ -26,7 +26,6 @@ class _BlockState:
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
         self.gotos = {}
-        self.tbc_locals: list[int] = []
 
 
 ConstType: TypeAlias = int | float | str
@@ -444,31 +443,34 @@ class AttribName(Ast):
         self.attribute = attribute
 
 
-# TODO: implement to-be-closed variables
 @dataclass
 class LocalAssignStmt(Ast, Statement):
-    names: list[AttribName]
+    attr_names: list[AttribName]
     exprs: list[Expression]
 
     def emit(self, state: _ProgramState):
-        has_tbc_var: bool = False
+        tbc_index: int | None = None
 
-        adjust_static(state, len(self.names), self.exprs)
-        for attr_name in self.names[::-1]:
+        adjust_static(state, len(self.attr_names), self.exprs)
+
+        for attr_name in reversed(self.attr_names):
             local_index = state.proto.new_local(attr_name.name)
-            # Only <const> and <close> are allowed by the spec.
-            if attr_name.attribute:
-                if attr_name.attribute == "close":
-                    if has_tbc_var:
-                        raise CompilationError("Var list already contains a to-be-closed variable.")
-                    has_tbc_var = True
-                    state.proto.block.tbc_locals.append(local_index)
-                elif attr_name.attribute == "const":
-                    state.proto.block.current_locals.get_by_name(attr_name.name).is_const = True
-                else:
-                    raise CompilationError(f"Unsupported attribute: <{attr_name.attribute}>.")
+            match attr_name.attribute:
+                case "close":
+                    if tbc_index:
+                        raise CompilationError("Multiple to-be-closed variables in local list.")
+                    tbc_index = local_index
+                case "const":
+                    # TODO: proper implementation of consts
+                    var = state.proto.block.current_locals.get_by_index(local_index)
+                    var.is_const = True
+                case _:
+                    raise CompilationError(f"Unknown attribute: '{attr_name.attribute}'.")
 
             state.proto.add_opcode(f"store_local {local_index}")
+
+        if tbc_index:
+            state.proto.add_opcode(f"mark_tbc {tbc_index}")
 
 
 @dataclass
