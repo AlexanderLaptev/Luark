@@ -45,7 +45,7 @@ class _ProtoState:
         self.pc: int = 0
         self.blocks: list[_BlockState] = []
 
-        self.num_upvalues: int = 1
+        self.num_upvalues: int = 0
         self.num_consts: int = 0
         self.num_locals: int = 0
 
@@ -229,65 +229,73 @@ class Statement(ABC):
 
 class Expression(ABC):
     @abstractmethod
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         raise NotImplementedError
 
 
-class MultiresExpression:
-    pass
+class MultiresExpression(ABC):
+    @abstractmethod
+    def evaluate(self, state: _ProgramState, return_count: int):
+        pass
 
 
-def eval_multires_expr(
-        state: _ProgramState,
-        expr: MultiresExpression,
-        size: int,
-):
-    if isinstance(expr, FuncCall):
-        expr.evaluate(state, size)
-    elif isinstance(expr, Varargs):
-        if not state.proto.is_variadic:
-            raise CompilationError("Cannot use varargs from a non-variadic function.")
-        state.proto.add_opcode(f"get_varargs {size}")
+def evaluate_single(state: _ProgramState, expr: Expression | MultiresExpression):
+    if isinstance(expr, MultiresExpression):  # function/method calls and varargs
+        expr.evaluate(state, 2)
+    elif isinstance(expr, Expression):  # standard singleres expression
+        expr.evaluate(state)
     else:
-        raise InternalCompilerError("Illegal multires expression type.")
+        raise InternalCompilerError("Expected expression, got something else.")
 
 
-def adjust_expr_list(
+# Used in:
+# 1. Assignments.
+# 2. Local assignments.
+# 3. Generic for loops.
+# Other adjustments are done dynamically by the VM at runtime.
+def adjust_static(
         state: _ProgramState,
         count: int,
         expr_list: list[Expression | MultiresExpression],
 ):
-    if not expr_list or len(expr_list) == 0:
-        for _ in range(count):
-            state.proto.add_opcode("push_nil")
-        return
+    # If the last expression is multires, the
+    # adjustment must be performed dynamically.
+    # We still need to specify how many values
+    # we expect to receive in the end.
 
     difference = count - len(expr_list)
+    if difference > 0:  # append nils
+        for expr in expr_list:
+            evaluate_single(state, expr)
+        for _ in range(difference):
+            state.proto.add_opcode("push_nil")
+    else:
+        # Even if there are more values then expected,
+        # we still have to evaluate them all and simply
+        # discard them later.
 
-    if difference > 0:  # names > exprs
         for i in range(len(expr_list) - 1):
-            eval_multires_expr(state, expr_list[i], 2)
+            expr = expr_list[i]
+            evaluate_single(state, expr)
 
         last = expr_list[-1]
         if isinstance(last, MultiresExpression):
-            eval_multires_expr(state, last, difference + 2)
+            # Tell the VM to discard all values if
+            # we're already beyond the list of names.
+            return_count = 2 if (difference == 0) else 1
+            last.evaluate(state, return_count)
         else:
-            for _ in range(difference + 1):
-                state.proto.add_opcode("push_nil")
-    else:  # names == exprs OR names < exprs
-        for i in range(count):
-            expr = expr_list[i]
-            if isinstance(expr, MultiresExpression):
-                eval_multires_expr(state, expr, 2)
-            else:
-                expr.evaluate(state)
+            last.evaluate(state)
+
+        for _ in range(-difference):  # diff is < 0 here, so negate it
+            state.proto.add_opcode("pop")  # discard extra values
 
 
 @dataclass
 class String(Ast, Expression):
     value: str
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         index = state.proto.get_const_index(self.value)
         state.proto.add_opcode(f"push_const {index}")
 
@@ -296,7 +304,7 @@ class String(Ast, Expression):
 class Number(Ast, Expression):
     value: int | float
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         if isinstance(self.value, int):
             state.proto.add_opcode(f"push_int {self.value}")
         elif isinstance(self.value, float):
@@ -309,7 +317,7 @@ class Number(Ast, Expression):
 
 
 class NilValue(Expression):
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         state.proto.add_opcode("push_nil")
 
 
@@ -317,7 +325,7 @@ NilValue.instance = NilValue()
 
 
 class TrueValue(Expression):
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         state.proto.add_opcode("push_true")
 
 
@@ -325,7 +333,7 @@ TrueValue.instance = TrueValue()
 
 
 class FalseValue(Expression):
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         state.proto.add_opcode("push_false")
 
 
@@ -338,7 +346,7 @@ class BinaryOpExpression(Expression):
     left: Expression
     right: Expression
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         self.left.evaluate(state)
         self.right.evaluate(state)
         state.proto.add_opcode(self.opcode)
@@ -348,12 +356,13 @@ class BinaryOpExpression(Expression):
 class UnaryExpression(Expression):
     opcode: str
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         state.proto.add_opcode(self.opcode)
 
 
 class Varargs(Ast, MultiresExpression):
-    pass
+    def evaluate(self, state: _ProgramState, return_count: int):
+        state.proto.add_opcode(f"get_varargs {return_count}")
 
 
 class AttribName(Ast):
@@ -371,7 +380,7 @@ class LocalAssignStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         has_tbc_var: bool = False
 
-        adjust_expr_list(state, len(self.names), self.exprs)
+        adjust_static(state, len(self.names), self.exprs)
         for attr_name in self.names[::-1]:
             local_index = state.proto.new_local(attr_name.name)
             # Only <const> and <close> are allowed by the spec.
@@ -393,7 +402,7 @@ class LocalAssignStmt(Ast, Statement):
 class Var(Ast, Expression):
     name: str
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         state.read(self.name)
 
 
@@ -402,7 +411,7 @@ class DotAccess(Ast, Expression):
     expression: Expression
     name: str
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         proto = state.proto
         self.expression.evaluate(state)
         index = proto.get_const_index(self.name)
@@ -415,7 +424,7 @@ class TableAccess(Ast, Expression):
     table: Expression
     key: Expression
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         proto = state.proto
         self.table.evaluate(state)
         self.key.evaluate(state)
@@ -433,37 +442,42 @@ class AssignStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         proto = state.proto
 
-        aux = []
+        # Cache variables used in dot/table accesses to
+        # ensure the assignment does not affect them.
+        temp_indices = []
         for var in self.var_list:
+            # TODO: use OOP here?
             if isinstance(var, Var):
+                # A normal var only referes to a name
+                # and thus doesn't need to be cached.
                 continue
             elif isinstance(var, DotAccess):
                 index = proto.new_temporary()
+                temp_indices.append(index)
                 var.expression.evaluate(state)
                 proto.add_opcode(f"store_local {index}")
-                aux.append(index)
             elif isinstance(var, TableAccess):
+                # TODO: optimize table access with consts (don't cache)
                 table_index = proto.new_temporary()
                 key_index = proto.new_temporary()
+                temp_indices.append(table_index)
+                temp_indices.append(key_index)
 
-                var.table.evaluate(state)
+                evaluate_single(state, var.table)
                 proto.add_opcode(f"store_local {table_index}")
-                var.key.evaluate(state)
+                evaluate_single(state, var.key)
                 proto.add_opcode(f"store_local {key_index}")
-
-                aux.append(table_index)
-                aux.append(key_index)
             else:
                 raise InternalCompilerError("Unsupported assignment.")
 
-        adjust_expr_list(state, len(self.var_list), self.expr_list)
+        adjust_static(state, len(self.var_list), self.expr_list)
 
-        aux_index = len(aux) - 1
+        aux_index = len(temp_indices) - 1  # ensure we read the indices in reverse order
         for var in self.var_list[::-1]:
             if isinstance(var, Var):
                 state.assign(var.name)
             elif isinstance(var, DotAccess):
-                local_index: int = aux[aux_index]
+                local_index: int = temp_indices[aux_index]
                 aux_index -= 1
 
                 const_index: int = proto.get_const_index(var.name)
@@ -471,15 +485,15 @@ class AssignStmt(Ast, Statement):
                 proto.add_opcode(f"push_const {const_index}")
                 proto.add_opcode("set_table")
             elif isinstance(var, TableAccess):
-                key_index = aux[aux_index]
+                # Again, reverse order.
+                key_index = temp_indices[aux_index]
                 aux_index -= 1
-                table_index = aux[aux_index]
+                table_index = temp_indices[aux_index]
                 aux_index -= 1
 
                 proto.add_opcode(f"load_local {table_index}")
                 proto.add_opcode(f"load_local {key_index}")
                 proto.add_opcode("set_table")
-            # not adding else because we already did above
 
 
 @dataclass
@@ -492,6 +506,8 @@ class Block(Ast, AsList, Statement):
                 state.push_block()
                 statement.emit(state)
                 state.pop_block()
+            elif isinstance(statement, FuncCall):
+                statement.evaluate(state, 0)
             else:
                 statement.emit(state)
 
@@ -548,7 +564,7 @@ class FuncDef(Ast, Expression):
         self.name = name
 
     # TODO: define varargs order
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         if not self.name:
             my_number = state.num_lambdas
             state.num_lambdas += 1
@@ -628,7 +644,7 @@ class ReturnStmt(Ast, Statement):
         for i, expr in enumerate(self.exprs):
             if isinstance(expr, MultiresExpression):
                 size = 0 if (i == last_index) else 2
-                eval_multires_expr(state, expr, size)
+                expr.evaluate(state, size)
             else:
                 expr.evaluate(state)
 
@@ -657,7 +673,7 @@ Field = Expression | ExprField | NameField
 class TableConstructor(Ast, AsList, Expression):
     fields: list[Field] | None
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def evaluate(self, state: _ProgramState):
         proto = state.proto
         proto.add_opcode("create_table")
         table_local = proto.new_temporary()
@@ -677,7 +693,7 @@ class TableConstructor(Ast, AsList, Expression):
                     proto.add_opcode(f"push_const {const_index}")
                 elif isinstance(field, MultiresExpression):
                     size = 0 if i == len(self.fields) - 1 else 2
-                    eval_multires_expr(state, field, size)
+                    field.evaluate(state, size)
                     proto.add_opcode(f"load_local {table_local}")
                     if size > 0:
                         proto.add_opcode("store_list 1")
@@ -702,56 +718,60 @@ class FuncCallParams(Ast):
                 self.exprs = [child]
 
 
-@dataclass
-class FuncCall(Ast, Statement, Expression, MultiresExpression):
+class FuncCall(Ast, MultiresExpression):
     primary: Expression
     params: FuncCallParams
 
-    def emit(self, state: _ProgramState):
-        self.evaluate(state, 1)
+    def __init__(self, primary: Expression, params: FuncCallParams):
+        self.primary = primary
+        self.params = params
 
-    # TODO: refactor and remove *args, **kwargs
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
-        self.primary.evaluate(state)
+    def evaluate(self, state: _ProgramState, return_count: int = 1):
+        index = self._eval_primary(state)
 
-        return_count: int = 1
-        if args:
-            if not isinstance(args[0], int):
-                raise InternalCompilerError("Illegal function call: illegal return count.")
-            return_count = args[0]
-
-        # TODO: support varargs
-        param_count: int = len(self.params.exprs)
-        for expr in self.params.exprs:
-            expr.evaluate(state)
+        param_count: int = self._get_param_count()
+        last = len(self.params.exprs) - 1
+        self._push_self(state, index)
+        for i in range(len(self.params.exprs)):
+            expr = self.params.exprs[i]
+            if i == last:
+                if isinstance(expr, Varargs):
+                    param_count = 0
+                    state.proto.add_opcode("get_varargs 0")
+                else:
+                    expr.evaluate(state)
+            else:
+                if isinstance(expr, Varargs):
+                    state.proto.add_opcode("get_varargs 1")
+                else:
+                    expr.evaluate(state)
 
         state.proto.add_opcode(f"call {param_count} {return_count}")
 
+    # noinspection PyTypeChecker
+    def _eval_primary(self, state: _ProgramState) -> int:
+        self.primary.evaluate(state)
+        return None
 
-class MethodCall(FuncCall):  # TODO: does it really need to inherit FuncCall?
+    def _push_self(self, state: _ProgramState, index: int | None):
+        pass
+
+    def _get_param_count(self):
+        return len(self.params.exprs) + 1
+
+
+class MethodCall(FuncCall):
     def __init__(self, primary: Expression, name: str, params: FuncCallParams):
-        self.primary = primary
+        super().__init__(primary, params)
         self.name = name
-        self.params = params
 
-    def evaluate(self, state: _ProgramState, *args, **kwargs):
+    def _eval_primary(self, state: _ProgramState):
         obj_index = state.proto.new_temporary()
         self.primary.evaluate(state)
         state.proto.add_opcode(f"store_local {obj_index}")
 
-        return_count: int = 1
-        if args:
-            if not isinstance(args[0], int):
-                raise InternalCompilerError("Illegal function call: illegal return count.")
-            return_count = args[0]
-
-        # TODO: support varargs
-        param_count: int = len(self.params.exprs) + 1
-        state.proto.add_opcode(f"load_local {obj_index}")
-        for expr in self.params.exprs:
-            expr.evaluate(state)
-
-        state.proto.add_opcode(f"call {param_count} {return_count}")
+    def _push_self(self, state: _ProgramState, index: int | None):
+        state.proto.add_opcode(f"load_local {index}")
 
 
 @dataclass
@@ -918,7 +938,7 @@ class ForLoopGen(Ast, Statement):
         initial_index = proto.new_temporary()
         proto.new_temporary()  # closing value
 
-        adjust_expr_list(state, 4, self.expr_list)
+        adjust_static(state, 4, self.expr_list)
         proto.add_opcode(f"prepare_for_gen {iterator_index}")
         proto.add_opcode(f"load_local {initial_index}")
         proto.add_opcode(f"store_local {control_index}")

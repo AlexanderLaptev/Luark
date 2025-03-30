@@ -10,10 +10,6 @@ class LocalVar:
     end: int | None = None
     is_const: bool = False
 
-    def __str__(self) -> str:
-        name = self.name if self.name else "(tmp)"
-        return f"{name}#{self.index} - {self.start}:{self.end}"
-
 
 class LocalVarIndex:
     index_lookup: dict[int, LocalVar]
@@ -89,29 +85,23 @@ class Prototype:
 
         out.append("\topcodes:")
         for i, opcode in enumerate(self.opcodes):
-            result = self._opcode_to_str(i, opcode)
+            parts = opcode.split(" ")
+            own_name = parts[0]
+            result = f"\t\t{i}\t\t{opcode}"
+            if own_name.endswith("local"):
+                index = int(parts[1])
+                name = self.locals.get_by_index(index).name
+                if not name:
+                    name = "(temp)"
+                result += f"  // '{name}'"
+            elif own_name == "push_const":
+                index = int(parts[1])
+                result += f"  // {self.consts[index]}"
+            elif own_name == "get_upvalue":
+                index = int(parts[1])
+                result += f"  // '{self.upvalues[index]}'"
             out.append(result)
         return "\n".join(out)
-
-    def _opcode_to_str(self, line: int, opcode: str):
-        result = f"\t\t{line}\t\t" + opcode
-        parts = opcode.split(" ")
-        args = [int(x) for x in parts[1:]]
-        command = parts[0]
-
-        match command:
-            case "push_const":
-                const = self.consts[args[0]]
-                if isinstance(const, str):
-                    const = '"' + const + '"'
-                result += f"\t\t// {const}"
-            case "load_local" | "store_local":
-                local = self.locals.get_by_index(args[0])
-                result += f"\t\t// {local}"
-            case "get_upvalue":
-                upvalue = self.upvalues[args[0]]
-                result += f"\t\t// {upvalue}"
-        return result
 
 
 class Program:
