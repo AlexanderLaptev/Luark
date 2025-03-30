@@ -1035,6 +1035,7 @@ class ForLoopGen(Ast, AsList, Statement):
             index = proto.get_local_index(name)
             name_indices.append(index)
 
+        proto.add_opcode(f"mark_tbc {closing_val_index}")
         adjust_static(state, 4, self.expr_list)
         proto.add_opcode(f"prepare_for_gen {control_index}")
 
