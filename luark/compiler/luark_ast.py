@@ -2,7 +2,7 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable
+from typing import Callable, TypeAlias
 
 from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
@@ -29,7 +29,7 @@ class _BlockState:
         self.tbc_locals: list[int] = []
 
 
-ConstType = int | float | str
+ConstType: TypeAlias = int | float | str
 
 
 class _ProtoState:
@@ -504,7 +504,7 @@ class TableAccess(Ast, Expression):
         proto.add_opcode("get_table")
 
 
-VarType = Var | DotAccess | TableAccess
+VarType: TypeAlias = Var | DotAccess | TableAccess
 
 
 class AssignStmt(Ast, Statement):
@@ -741,7 +741,7 @@ class NameField(Ast):
     value: Expression
 
 
-Field = Expression | ExprField | NameField
+Field: TypeAlias = Expression | ExprField | NameField
 
 
 @dataclass
