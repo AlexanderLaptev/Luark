@@ -1,9 +1,9 @@
----[[
-local x = 1
-do
-    x = 2
-    local x = 10
-    x = 15
+function foo()
+	function bar()
+        x = 5
+    	function baz(y)
+            local x = 3
+            x = 5
+        end
+    end
 end
-x = 3
---]]

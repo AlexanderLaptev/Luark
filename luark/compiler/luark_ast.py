@@ -49,7 +49,7 @@ class _ProtoState:
         self.num_consts: int = 0
         self.num_locals: int = 0
 
-        self.upvalues: dict[str, int] = {"_ENV": 0}  # TODO: pass _ENV only when needed
+        self.upvalues: dict[str, int] = {}
         self.consts: dict[ConstType, int] = {}
         self.opcodes: list[str] = []
 
@@ -205,8 +205,11 @@ class _ProgramState:
 
         # If we could not find the local either in the same function or
         # in any of the enclosing ones, treat the variable as a global.
-        env_index = current_proto.get_upvalue_index("_ENV")
+        env_index: int
+        for proto in self.stack:
+            env_index = proto.get_upvalue_index("_ENV")
         name_index = current_proto.get_const_index(name)
+        # noinspection PyUnboundLocalVariable
         current_proto.add_opcode(f"get_upvalue {env_index}")
         current_proto.add_opcode(f"push_const {name_index}")
         current_proto.add_opcode("get_table" if get else "set_table")
@@ -973,6 +976,7 @@ class Chunk(Ast):
         func_body = FuncBody(ParamList([Varargs()]), self.block)
         func_def = FuncDef(func_body, func_name)
         func_def.evaluate(program_state)
+        program_state.protos[0].get_upvalue_index("_ENV")
         return program_state.compile()
 
 

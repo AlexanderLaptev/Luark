@@ -69,14 +69,13 @@ class Prototype:
         self.upvalues: list[str] = []
 
     def __str__(self) -> str:
-        # TODO: sort locals
         out = [f"\tlocals({self.num_locals}):"]
         for var in self.locals:
             out.append(f"\t\t{var.name}[{var.index}] - {var.start}:{var.end}")
 
         out.append("\tupvalues:")
         for i, upvalue in enumerate(self.upvalues):
-            out.append(f"\t\t{i}\t\t{upvalue}")
+            out.append(f"\t\t{i}\t\t\"{upvalue}\"")
 
         out.append("\tconsts:")
         for i, const in enumerate(self.consts):
