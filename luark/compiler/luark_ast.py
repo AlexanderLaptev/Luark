@@ -20,7 +20,7 @@ class _BlockState:
     current_locals: LocalVarIndex
 
     def __init__(self):
-        self.current_locals = LocalVarIndex()  # TODO: free local variable slots when the block is popped?
+        self.current_locals = LocalVarIndex()
         self.breaks: list[int] = []
         self.labels: dict[str, int] = {}
         self.gotos = {}
@@ -32,9 +32,12 @@ ConstType = int | float | str
 
 class _ProtoState:
     locals: LocalVarIndex
+    locals_pool: list[int]
 
     def __init__(self, func_name: str = None):
         self.locals = LocalVarIndex()
+        self.locals_pool = []
+
         self.fixed_params: int = 0
         self.is_variadic: bool = False
 
@@ -70,10 +73,17 @@ class _ProtoState:
         self.consts[value] = index
         return index
 
+    def _make_local_index(self) -> int:
+        if not self.locals_pool:
+            index = self.num_locals
+            self.num_locals += 1
+            return index
+        else:
+            return self.locals_pool.pop()
+
     def new_local(self, name: str) -> int:
-        index = self.num_locals
+        index = self._make_local_index()
         self.block.current_locals.add(LocalVar(name, index, self.pc))
-        self.num_locals += 1
         return index
 
     def get_local_index(self, name: str) -> int:
@@ -84,10 +94,12 @@ class _ProtoState:
             return self.new_local(name)
 
     def new_temporary(self) -> int:
-        var = LocalVar(None, self.num_locals, self.pc)
+        var = LocalVar(None, self._make_local_index(), self.pc)
         self.block.current_locals.add(var)
-        self.num_locals += 1
         return var.index
+
+    def release_local(self, index: int):
+        self.locals_pool.append(index)
 
     def add_label(self, name: str):
         if name not in self.block.labels:
@@ -153,10 +165,12 @@ class _ProgramState:
         return block
 
     def pop_block(self):
-        block = self.proto.blocks.pop()
+        proto = self.proto
+        block = proto.blocks.pop()
         end = self.proto.pc - 1
         for var in block.current_locals:
             var.end = end
+            proto.release_local(var.index)
         self.proto.locals.merge(block.current_locals)
 
     def assign(self, name: str):
