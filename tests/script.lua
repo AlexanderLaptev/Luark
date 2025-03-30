@@ -1,1 +1,4 @@
-for k, a, b, c in pairs(t) do print(k) end
+local a <const>, b <const> = foo(), 5
+x = a + b
+local b <const> = 11
+x = a + b

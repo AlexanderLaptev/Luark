@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, TypeAlias
+
+ConstValue: TypeAlias = int | float | str
 
 
 @dataclass
@@ -9,6 +11,7 @@ class LocalVar:
     start: int
     end: int | None = None
     is_const: bool = False
+    const_value: ConstValue | None = None
 
 
 class LocalVarIndex:

@@ -8,7 +8,7 @@ from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
 
 from luark.compiler.errors import InternalCompilerError, CompilationError
-from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex
+from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex, ConstValue
 
 
 # TODO: refactor type hints
@@ -16,19 +16,22 @@ from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex
 # TODO: code cleanup
 # TODO: add upvalue metadata
 # TODO: use evaluate_single() everywhere
+# TODO: fix FuncCall opcode order
 
 
 class _BlockState:
     current_locals: LocalVarIndex
+    breaks: list[int]
+    labels: dict[str, int]
+    const_locals: dict[str, "Expression"]
+    gotos: dict
 
     def __init__(self):
         self.current_locals = LocalVarIndex()
-        self.breaks: list[int] = []
-        self.labels: dict[str, int] = {}
+        self.breaks = []
+        self.labels = {}
+        self.const_locals = {}
         self.gotos = {}
-
-
-ConstType: TypeAlias = int | float | str
 
 
 class _ProtoState:
@@ -48,7 +51,7 @@ class _ProtoState:
 
     block_stack: list[_BlockState]
     upvalues: dict[str, int]
-    consts: dict[ConstType, int]
+    consts: dict[ConstValue, int]
     opcodes: list[str]
 
     def __init__(self, func_name: str = None):
@@ -87,7 +90,7 @@ class _ProtoState:
         self.upvalues[name] = index
         return index
 
-    def get_const_index(self, value: ConstType) -> int:
+    def get_const_index(self, value: ConstValue) -> int:
         if value in self.consts:
             return self.consts[value]
         index = self.num_consts
@@ -226,20 +229,23 @@ class _ProgramState:
             proto.release_local(var.index)
         self.proto.locals.merge(block.current_locals)
 
-    def read(self, name: str):
-        self._resolve(name, self._ResolveAction.LOAD)
+    def read(self, state: "_ProgramState", name: str):
+        self._resolve(name, state, self._ResolveAction.LOAD)
 
-    def assign(self, name: str):
-        self._resolve(name, self._ResolveAction.STORE)
+    def assign(self, state: "_ProgramState", name: str):
+        self._resolve(name, state, self._ResolveAction.STORE)
 
-    def _resolve(self, name: str, action: _ResolveAction):
+    def _resolve(self, name: str, state: "_ProgramState", action: _ResolveAction):
         current_proto = self.proto
         visited_protos = []  # these protos may need an upvalue passed down to them
         for proto in reversed(self.proto_stack):
             visited_protos.append(proto)
             upvalue = self.proto != proto  # upvalues are locals from an enclosing function
             for block in reversed(proto.block_stack):
-                if block.current_locals.has_name(name):
+                if name in block.const_locals:  # check consts first
+                    block.const_locals[name].evaluate(state)
+                    return
+                if block.current_locals.has_name(name):  # then check locals (and upvalues)
                     if upvalue:
                         # A local variable in an outer function. Create an
                         # upvalue and drill it through the proto stack.
@@ -256,7 +262,18 @@ class _ProgramState:
                         current_proto.add_opcode(f"{opcode} {upvalue_index}")
                     else:
                         # A local variable in the same function.
-                        index = block.current_locals.get_by_name(name)[-1].index
+                        var = block.current_locals.get_by_name(name)[-1]
+                        local_index = var.index
+
+                        if var.is_const:
+                            if var.const_value:  # compile time constant
+                                const_index = current_proto.get_const_index(var.const_value)
+                                current_proto.add_opcode(f"push_const {const_index}")
+                            else:  # runtime constant
+                                if action == self._ResolveAction.STORE:
+                                    raise CompilationError(f"Cannot reassign constant variable '{name}'.")
+                                current_proto.add_opcode(f"load_local {local_index}")
+                            return
 
                         opcode: str
                         if action == self._ResolveAction.LOAD:
@@ -264,7 +281,7 @@ class _ProgramState:
                         else:
                             opcode = "store_local"
 
-                        current_proto.add_opcode(f"{opcode} {index}")
+                        current_proto.add_opcode(f"{opcode} {local_index}")
                     return
 
         # If we could not find the local either in the same function or
@@ -414,6 +431,8 @@ class FalseValue(Expression):
 
 FalseValue.instance = FalseValue()
 
+ConstExpr: TypeAlias = String | Number | NilValue | TrueValue | FalseValue
+
 
 @dataclass
 class BinaryOpExpression(Expression):
@@ -452,28 +471,50 @@ class LocalAssignStmt(Ast, Statement):
     exprs: list[Expression]
 
     def emit(self, state: _ProgramState):
+        proto = state.proto
+        block = proto.block
+        indices: list[int] = []
+        consts: list[int] = []
         tbc_index: int | None = None
+        exprs = self.exprs.copy() if self.exprs else []
 
-        adjust_static(state, len(self.attr_names), self.exprs)
+        for i in range(len(self.attr_names)):
+            name = self.attr_names[i].name
+            attr = self.attr_names[i].attribute
 
-        for attr_name in reversed(self.attr_names):
-            local_index = state.proto.new_local(attr_name.name)
-            match attr_name.attribute:
-                case "close":
-                    if tbc_index:
-                        raise CompilationError("Multiple to-be-closed variables in local list.")
-                    tbc_index = local_index
-                case "const":
-                    # TODO: support compile time consts
-                    var = state.proto.get_local(local_index)
+            if attr == "const" and i < len(exprs):
+                expr = exprs[i]
+                if isinstance(expr, ConstExpr):  # compile time constant
+                    block.const_locals[name] = expr
+                    consts.append(i)
+                else:
+                    indices.append(proto.get_local_index(name))
+            else:
+                index = proto.get_local_index(name)
+                var = proto.get_local(index)
+                indices.append(index)
+                if not attr:
+                    pass
+                elif attr == "const":  # runtime constant
                     var.is_const = True
-                case _:
-                    raise CompilationError(f"Unknown attribute: '{attr_name.attribute}'.")
+                elif attr == "close":
+                    if tbc_index is not None:
+                        raise CompilationError("Multiple to-be-closed vars in a single local var list.")
+                    tbc_index = index
+                    var.is_const = True
+                else:
+                    raise CompilationError(f"Unknown attribute: '{attr}'.")
 
-            state.proto.add_opcode(f"store_local {local_index}")
+        for i in consts:
+            exprs.pop(i)
 
-        if tbc_index:
-            state.proto.add_opcode(f"mark_tbc {tbc_index}")
+        if exprs:
+            adjust_static(state, len(indices), exprs)
+            indices.reverse()
+            for i in indices:
+                proto.add_opcode(f"store_local {i}")
+        if tbc_index is not None:
+            proto.add_opcode(f"mark_tbc {tbc_index}")
 
 
 @dataclass
@@ -481,7 +522,7 @@ class Var(Ast, Expression):
     name: str
 
     def evaluate(self, state: _ProgramState):
-        state.read(self.name)
+        state.read(state, self.name)
 
 
 @dataclass
@@ -553,7 +594,7 @@ class AssignStmt(Ast, Statement):
         temp_index = len(temp_indices) - 1  # ensure we read the indices in reverse order
         for var in self.var_list[::-1]:
             if isinstance(var, Var):
-                state.assign(var.name)
+                state.assign(state, var.name)
             elif isinstance(var, DotAccess):
                 local_index: int = temp_indices[temp_index]
                 temp_index -= 1
