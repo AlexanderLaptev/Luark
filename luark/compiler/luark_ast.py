@@ -472,13 +472,13 @@ class AssignStmt(Ast, Statement):
 
         adjust_static(state, len(self.var_list), self.expr_list)
 
-        aux_index = len(temp_indices) - 1  # ensure we read the indices in reverse order
+        temp_index = len(temp_indices) - 1  # ensure we read the indices in reverse order
         for var in self.var_list[::-1]:
             if isinstance(var, Var):
                 state.assign(var.name)
             elif isinstance(var, DotAccess):
-                local_index: int = temp_indices[aux_index]
-                aux_index -= 1
+                local_index: int = temp_indices[temp_index]
+                temp_index -= 1
 
                 const_index: int = proto.get_const_index(var.name)
                 proto.add_opcode(f"load_local {local_index}")
@@ -486,14 +486,17 @@ class AssignStmt(Ast, Statement):
                 proto.add_opcode("set_table")
             elif isinstance(var, TableAccess):
                 # Again, reverse order.
-                key_index = temp_indices[aux_index]
-                aux_index -= 1
-                table_index = temp_indices[aux_index]
-                aux_index -= 1
+                key_index = temp_indices[temp_index]
+                temp_index -= 1
+                table_index = temp_indices[temp_index]
+                temp_index -= 1
 
                 proto.add_opcode(f"load_local {table_index}")
                 proto.add_opcode(f"load_local {key_index}")
                 proto.add_opcode("set_table")
+
+        for index in temp_indices:
+            proto.release_local(index)
 
 
 @dataclass
