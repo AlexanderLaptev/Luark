@@ -15,6 +15,7 @@ from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex
 # TODO: refactor multires expressions
 # TODO: code cleanup
 # TODO: add upvalue metadata
+# TODO: use evaluate_single() everywhere
 
 
 class _BlockState:
@@ -34,6 +35,7 @@ ConstType = int | float | str
 class _ProtoState:
     locals: LocalVarIndex
     locals_pool: list[int]
+    linear_mode: bool
 
     func_name: str
     fixed_params: int
@@ -53,6 +55,7 @@ class _ProtoState:
     def __init__(self, func_name: str = None):
         self.locals = LocalVarIndex()
         self.locals_pool = []
+        self.linear_mode = False
 
         self.func_name = func_name
         self.fixed_params = 0
@@ -94,7 +97,7 @@ class _ProtoState:
         return index
 
     def _next_local_index(self) -> int:
-        if not self.locals_pool:
+        if self.linear_mode or not self.locals_pool:
             index = self.num_locals
             self.num_locals += 1
             return index
@@ -103,7 +106,7 @@ class _ProtoState:
 
     def new_local(self, name: str) -> int:
         index = self._next_local_index()
-        self.block.current_locals.add(LocalVar(name, index, self.pc))
+        self.block.current_locals.add(LocalVar(name, index, self._pc))
         return index
 
     def get_local_index(self, name: str) -> int:
@@ -114,7 +117,7 @@ class _ProtoState:
             return self.new_local(name)
 
     def new_temporary(self) -> int:
-        var = LocalVar(None, self._next_local_index(), self.pc)
+        var = LocalVar(None, self._next_local_index(), self._pc)
         self.block.current_locals.add(var)
         return var.index
 
@@ -137,6 +140,14 @@ class _ProtoState:
         self.opcodes.append(opcode)
         self._pc += 1
 
+    def reserve_opcodes(self, count: int) -> int:
+        pc = self._pc
+        for _ in range(count):
+            # noinspection PyTypeChecker
+            self.opcodes.append(None)
+            self._pc += 1
+        return pc
+
     def add_jump(self, to: int, from_: int = None):
         if not from_:
             from_ = self._pc
@@ -144,7 +155,7 @@ class _ProtoState:
 
     def set_jump(self, jump_pc: int, target: int = None):
         if not target:
-            target = self._pc
+            target = self._pc + 1
         self.opcodes[jump_pc] = f"jump {target - jump_pc}"
 
     def pop_opcode(self):
@@ -948,6 +959,22 @@ class IfStmt(Ast, AsList, Statement):
         proto.set_jump(jump_pc)
 
 
+def emit_for_loop_body(
+        state: _ProgramState,
+        body: Block,
+        block: _BlockState,
+        loop_start_pc: int,
+):
+    proto = state.proto
+    escape_jump_pc = proto.reserve_opcodes(1)
+    body.emit(state)
+    proto.add_jump(loop_start_pc)
+
+    proto.set_jump(escape_jump_pc)
+    for br in block.breaks:
+        proto.set_jump(br)
+
+
 @dataclass
 class ForLoopNum(Ast, Statement):
     control_name: str
@@ -960,29 +987,23 @@ class ForLoopNum(Ast, Statement):
         proto = state.proto
         block = state.push_block()
 
-        control_index = proto.new_temporary()
-        proto.new_temporary()
-        proto.new_temporary()
-        proto.get_local_index(self.control_name)
+        proto.linear_mode = True
+        control_index = proto.new_local(self.control_name)
+        for _ in range(2):
+            proto.new_temporary()
+        proto.linear_mode = False
 
-        self.initial_expr.evaluate(state)
-        self.limit_expr.evaluate(state)
+        evaluate_single(state, self.initial_expr)
+        evaluate_single(state, self.limit_expr)
         if self.step_expr:
-            self.step_expr.evaluate(state)
+            evaluate_single(state, self.step_expr)
         else:
             proto.add_opcode("push_int 1")
         proto.add_opcode(f"prepare_for_num {control_index}")
 
-        loop_start = proto.pc
-        proto.add_opcode(f"test_for_num {control_index}")
-        escape_jump_pc = proto.pc
-        proto.add_opcode(None)
-
-        self.body.emit(state)
-        proto.add_jump(loop_start)
-        proto.set_jump(escape_jump_pc)
-        for br in block.breaks:
-            proto.set_jump(br)
+        loop_start_pc = proto.pc
+        proto.add_opcode(f"test_for {control_index}")
+        emit_for_loop_body(state, self.body, block, loop_start_pc)
         state.pop_block()
 
 
@@ -996,39 +1017,35 @@ class ForLoopGen(Ast, Statement):
         proto = state.proto
         block = state.push_block()
 
-        control_index = proto.get_local_index(self.name_list[0])
+        proto.linear_mode = True
         iterator_index = proto.new_temporary()
         state_index = proto.new_temporary()
-        initial_index = proto.new_temporary()
-        proto.new_temporary()  # closing value
+        control_index = proto.get_local_index(self.name_list[0])
+        closing_val_index = proto.new_temporary()
+        proto.linear_mode = False
+
+        name_indices = [control_index]
+        for i in range(1, len(self.name_list)):
+            name = self.name_list[i]
+            index = proto.get_local_index(name)
+            name_indices.append(index)
 
         adjust_static(state, 4, self.expr_list)
-        proto.add_opcode(f"prepare_for_gen {iterator_index}")
-        proto.add_opcode(f"load_local {initial_index}")
-        proto.add_opcode(f"store_local {control_index}")
+        proto.add_opcode(f"prepare_for_gen {control_index}")
 
-        return_count = len(self.name_list) + 1
+        # TODO: check param and retval orders
+        loop_start_pc = proto.pc
         proto.add_opcode(f"load_local {state_index}")
         proto.add_opcode(f"load_local {control_index}")
-        proto.add_opcode(f"call 2 {return_count}")
+        proto.add_opcode(f"load_local {iterator_index}")
+        proto.add_opcode(f"call 3 {len(self.name_list)}")
 
-        for name in reversed(self.name_list):
-            index = proto.get_local_index(name)
+        for index in reversed(name_indices):
             proto.add_opcode(f"store_local {index}")
 
-        # TODO: merge common code with ForLoopNum
-        loop_start = proto.pc
         proto.add_opcode(f"load_local {control_index}")
-        proto.add_opcode("test")
-        escape_jump = proto.pc
-        proto.add_opcode(None)
-
-        self.body.emit(state)
-        proto.add_jump(loop_start)
-        proto.set_jump(escape_jump)
-        for br in block.breaks:
-            proto.set_jump(br)
-
+        proto.add_opcode(f"test_nil")
+        emit_for_loop_body(state, self.body, block, loop_start_pc)
         state.pop_block()
 
 
