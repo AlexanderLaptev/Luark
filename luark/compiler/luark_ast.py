@@ -1061,8 +1061,6 @@ class LuarkTransformer(Transformer):
         else:
             return BinaryOpExpression(op, *c)
 
-    # TODO: optimize `or true`, `and false`
-
     def or_expr(self, c):
         return BinaryOpExpression("or", *c)
 

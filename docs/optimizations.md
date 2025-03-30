@@ -5,4 +5,5 @@
 
 # AST
 - if statement with a single else block (`if cond then ; else foo() end`)
+- `or true`, `and false`
  
