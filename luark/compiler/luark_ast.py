@@ -35,28 +35,47 @@ class _ProtoState:
     locals: LocalVarIndex
     locals_pool: list[int]
 
+    func_name: str
+    fixed_params: int
+    is_variadic: bool
+
+    _pc: int
+
+    num_upvalues: int
+    num_consts: int
+    num_locals: int
+
+    block_stack: list[_BlockState]
+    upvalues: dict[str, int]
+    consts: dict[ConstType, int]
+    opcodes: list[str]
+
     def __init__(self, func_name: str = None):
         self.locals = LocalVarIndex()
         self.locals_pool = []
 
-        self.fixed_params: int = 0
-        self.is_variadic: bool = False
+        self.func_name = func_name
+        self.fixed_params = 0
+        self.is_variadic = False
 
-        self.func_name: str = func_name
-        self.pc: int = 0
-        self.blocks: list[_BlockState] = []
+        self._pc = 0
 
-        self.num_upvalues: int = 0
-        self.num_consts: int = 0
-        self.num_locals: int = 0
+        self.num_upvalues = 0
+        self.num_consts = 0
+        self.num_locals = 0
 
-        self.upvalues: dict[str, int] = {}
-        self.consts: dict[ConstType, int] = {}
-        self.opcodes: list[str] = []
+        self.block_stack = []
+        self.upvalues = {}
+        self.consts = {}
+        self.opcodes = []
 
     @property
     def block(self) -> _BlockState:
-        return self.blocks[-1]
+        return self.block_stack[-1]
+
+    @property
+    def pc(self):
+        return self._pc
 
     def get_upvalue_index(self, name: str) -> int:
         if name in self.upvalues:
@@ -116,11 +135,11 @@ class _ProtoState:
 
     def add_opcode(self, opcode):
         self.opcodes.append(opcode)
-        self.pc += 1
+        self._pc += 1
 
     def pop_opcode(self):
         self.opcodes.pop()
-        self.pc -= 1
+        self._pc -= 1
 
     def add_goto(self, label: str):
         self.block.gotos[self.pc] = (label, len(self.block.current_locals))
@@ -172,12 +191,12 @@ class _ProgramState:
 
     def push_block(self) -> _BlockState:
         block = _BlockState()
-        self.proto.blocks.append(block)
+        self.proto.block_stack.append(block)
         return block
 
     def pop_block(self):
         proto = self.proto
-        block = proto.blocks.pop()
+        block = proto.block_stack.pop()
         end = self.proto.pc - 1
         for var in block.current_locals:
             var.end = end
@@ -196,7 +215,7 @@ class _ProgramState:
         for proto in reversed(self.proto_stack):
             visited_protos.append(proto)
             upvalue = self.proto != proto  # upvalues are locals from an enclosing function
-            for block in reversed(proto.blocks):
+            for block in reversed(proto.block_stack):
                 if block.current_locals.has_name(name):
                     if upvalue:
                         # A local variable in an outer function. Create an
@@ -624,6 +643,7 @@ class FuncDef(Ast, Expression):
             proto.add_opcode("return 1")
 
         # Close all goto's
+        # TODO: review
         for pc, data in block.gotos.items():
             name, locals_count = data
             if proto.num_locals != locals_count:
