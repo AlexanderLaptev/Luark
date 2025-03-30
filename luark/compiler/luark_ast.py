@@ -11,12 +11,6 @@ from luark.compiler.errors import InternalCompilerError, CompilationError
 from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex, ConstValue
 
 
-# TODO: refactor multires expressions
-# TODO: code cleanup
-# TODO: add upvalue metadata
-# TODO: use evaluate_single() everywhere
-
-
 class _BlockState:
     current_locals: LocalVarIndex
     breaks: list[int]
@@ -919,7 +913,7 @@ class WhileStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         proto = state.proto
         start = proto.pc
-        self.expr.evaluate(state)
+        evaluate_single(state, self.expr)
         proto.add_opcode("test")
         jump_pc = proto.pc
         proto.add_opcode(None)
@@ -945,7 +939,7 @@ class RepeatStmt(Ast, Statement):
         state.push_block()
         start = state.proto.pc
         self.block.emit(state)
-        self.expr.evaluate(state)
+        evaluate_single(state, self.expr)
         state.proto.add_opcode("test")
         end = state.proto.pc
         state.proto.add_jump(start, end)
