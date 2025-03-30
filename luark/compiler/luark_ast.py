@@ -572,7 +572,6 @@ class AssignStmt(Ast, Statement):
         # ensure the assignment does not affect them.
         temp_indices = []
         for var in self.var_list:
-            # TODO: use OOP here?
             if isinstance(var, Var):
                 # A normal var only referes to a name
                 # and thus doesn't need to be cached.
@@ -583,18 +582,19 @@ class AssignStmt(Ast, Statement):
                 var.expression.evaluate(state)
                 proto.add_opcode(f"store_local {index}")
             elif isinstance(var, TableAccess):
-                # TODO: optimize table access with consts (don't cache)
                 table_index = proto.new_temporary()
-                key_index = proto.new_temporary()
-                temp_indices.append(table_index)
-                temp_indices.append(key_index)
-
                 evaluate_single(state, var.table)
                 proto.add_opcode(f"store_local {table_index}")
-                evaluate_single(state, var.key)
-                proto.add_opcode(f"store_local {key_index}")
+                temp_indices.append(table_index)
+
+                if not isinstance(var.key, ConstExpr):
+                    key_index = proto.new_temporary()
+                    evaluate_single(state, var.key)
+                    proto.add_opcode(f"store_local {key_index}")
+                    temp_indices.append(key_index)
+
             else:
-                raise InternalCompilerError("Unsupported assignment.")
+                raise InternalCompilerError("Illegal assignment.")
 
         adjust_static(state, len(self.var_list), self.expr_list)
 
@@ -611,14 +611,16 @@ class AssignStmt(Ast, Statement):
                 proto.add_opcode(f"push_const {const_index}")
                 proto.add_opcode("set_table")
             elif isinstance(var, TableAccess):
-                # Again, reverse order.
-                key_index = temp_indices[temp_index]
-                temp_index -= 1
+                if isinstance(var.key, ConstExpr):
+                    var.key.evaluate(state)
+                else:
+                    key_index = temp_indices[temp_index]
+                    temp_index -= 1
+                    proto.add_opcode(f"load_local {key_index}")
+
                 table_index = temp_indices[temp_index]
                 temp_index -= 1
-
                 proto.add_opcode(f"load_local {table_index}")
-                proto.add_opcode(f"load_local {key_index}")
                 proto.add_opcode("set_table")
 
         for index in temp_indices:
