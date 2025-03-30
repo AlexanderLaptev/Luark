@@ -1116,8 +1116,19 @@ class LuarkTransformer(Transformer):
     def mul_expr(self, c):
         return self._bin_num_op_expr(c, "mul", lambda x, y: x * y)
 
+    def _divide(self, x: int | float, y: int | float):
+        if y != 0:
+            return x / y
+        else:
+            if x > 0:
+                return float("inf")
+            elif x == 0:
+                return float("nan")
+            else:
+                return float("-inf")
+
     def div_expr(self, c):
-        return self._bin_num_op_expr(c, "div", lambda x, y: x / y)
+        return self._bin_num_op_expr(c, "div", self._divide)
 
     def fdiv_expr(self, c):
         return self._bin_num_op_expr(c, "fdiv", lambda x, y: math.floor(x / y))
