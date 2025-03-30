@@ -1095,14 +1095,14 @@ class ForLoopGen(Ast, AsList, Statement):
 
         proto.add_opcode(f"mark_tbc {closing_val_index}")
         adjust_static(state, 4, self.expr_list)
-        proto.add_opcode(f"prepare_for_gen {control_index}")
+        proto.add_opcode(f"prepare_for_gen {iterator_index}")
 
         # TODO: check param and retval orders
         loop_start_pc = proto.pc
         proto.add_opcode(f"load_local {state_index}")
         proto.add_opcode(f"load_local {control_index}")
         proto.add_opcode(f"load_local {iterator_index}")
-        proto.add_opcode(f"call 3 {len(self.name_list)}")
+        proto.add_opcode(f"call 3 {1 + len(self.name_list)}")
 
         for index in reversed(name_indices):
             proto.add_opcode(f"store_local {index}")
