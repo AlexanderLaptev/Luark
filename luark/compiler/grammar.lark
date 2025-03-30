@@ -57,19 +57,20 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | "not" unary_expr -> unary_not
     | "#" unary_expr -> unary_length
     | "~" unary_expr -> unary_bw_not
-?exp_expr: primary
-    | primary "^" unary_expr
-?primary.10: number
+?exp_expr: literal
+    | literal "^" unary_expr
+?literal: primary
+    | number
     | string
-    | var
     | func_def
-    | func_call
     | table_constructor
-    | "(" expr ")"
     | "true" -> true
     | "false" -> false
     | "nil" -> nil
     | varargs
+?primary.10: var
+    | func_call
+    | "(" expr ")"
 expr_list: expr ("," expr)*
 
 ?statement: ";" -> empty_stmt
