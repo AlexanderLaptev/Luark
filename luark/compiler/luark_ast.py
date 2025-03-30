@@ -1,6 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import Callable
 
 from lark.ast_utils import Ast, AsList
@@ -139,6 +140,10 @@ class _ProtoState:
 
 
 class _ProgramState:
+    class _ResolveAction(Enum):
+        READ = auto()
+        WRITE = auto()
+
     def __init__(self):
         self.protos: list[_ProtoState] = []
         self.stack: list[_ProtoState] = []
@@ -173,13 +178,13 @@ class _ProgramState:
             proto.release_local(var.index)
         self.proto.locals.merge(block.current_locals)
 
-    def assign(self, name: str):
-        self._resolve(name, False)
-
     def read(self, name: str):
-        self._resolve(name, True)
+        self._resolve(name, self._ResolveAction.READ)
 
-    def _resolve(self, name: str, get: bool):
+    def assign(self, name: str):
+        self._resolve(name, self._ResolveAction.WRITE)
+
+    def _resolve(self, name: str, action: _ResolveAction):
         current_proto = self.proto
         visited_protos = []  # these protos may need an upvalue passed down to them
         for proto in reversed(self.stack):
@@ -193,14 +198,25 @@ class _ProgramState:
                         for vp in visited_protos:
                             vp.get_upvalue_index(name)
                         upvalue_index = current_proto.get_upvalue_index(name)
-                        opcode = "load_upvalue" if get else "store_upvalue"
+
+                        opcode: str
+                        if action == self._ResolveAction.READ:
+                            opcode = "load_upvalue"
+                        else:
+                            opcode = "store_upvalue"
+
                         current_proto.add_opcode(f"{opcode} {upvalue_index}")
                     else:
                         # A local variable in the same function.
                         index = block.current_locals.get_by_name(name)[-1].index
-                        opcode = "load_local" if get else "store_local"
-                        current_proto.add_opcode(f"{opcode} {index}")
 
+                        opcode: str
+                        if action == self._ResolveAction.READ:
+                            opcode = "load_local"
+                        else:
+                            opcode = "store_local"
+
+                        current_proto.add_opcode(f"{opcode} {index}")
                     return
 
         # If we could not find the local either in the same function or
@@ -212,7 +228,13 @@ class _ProgramState:
         # noinspection PyUnboundLocalVariable
         current_proto.add_opcode(f"get_upvalue {env_index}")
         current_proto.add_opcode(f"push_const {name_index}")
-        current_proto.add_opcode("get_table" if get else "set_table")
+
+        opcode: str
+        if action == self._ResolveAction.READ:
+            opcode = "get_table"
+        else:
+            opcode = "set_table"
+        current_proto.add_opcode(opcode)
 
     def compile(self) -> Program:
         program = Program()
