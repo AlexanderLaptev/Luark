@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, TypeAlias
 
+from lark import Token
 from lark.ast_utils import Ast, AsList
 from lark.visitors import Transformer, Discard
 
@@ -1221,8 +1222,8 @@ class LuarkTransformer(Transformer):
         else:
             raise InternalCompilerError(f"Illegal decimal float literal: '{f}'")
 
-    def hex_number(self, n):
-        raise NotImplementedError  # TODO!
+    def hex_number(self, n: list[Token]):
+        return Number(float.fromhex(n[0].value))
 
     def empty_stmt(self, _):
         return Discard

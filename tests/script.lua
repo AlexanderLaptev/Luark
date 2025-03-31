@@ -1,3 +1,1 @@
-local function foo() return 2, 3 end
-local a, b, c = 1, foo()
-print(a, b, c)
+a = 0X1.921FB54442D18P+1
