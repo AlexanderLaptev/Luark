@@ -59,7 +59,7 @@ class LocalVarIndex:
         return name in self.name_lookup
 
 
-class Prototype:
+class CompiledPrototype:
     locals: LocalVarIndex
 
     def __init__(self, func_name: str = None):
@@ -116,10 +116,10 @@ class Prototype:
         return "\n".join(out)
 
 
-class Program:
+class CompiledProgram:
     def __init__(self):
         # By convention, the first prototype is the entry point.
-        self.prototypes: list[Prototype] = []
+        self.prototypes: list[CompiledPrototype] = []
 
     def __str__(self) -> str:
         out: list[str] = []
