@@ -1,11 +1,1 @@
--- repeat
---     foo()
--- --     break
--- --     bar()
--- until false
-
-while true do
-    foo()
---     break
---     bar()
-end
+local a, a = 1
