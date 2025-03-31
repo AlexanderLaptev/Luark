@@ -1,5 +1,11 @@
-repeat
-    local x = 20
-    if 4 > 3 then f() else break end
-    f()
-until 1
+-- repeat
+--     foo()
+-- --     break
+-- --     bar()
+-- until false
+
+while true do
+    foo()
+--     break
+--     bar()
+end

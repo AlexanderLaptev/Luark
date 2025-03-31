@@ -11,6 +11,9 @@ from luark.compiler.errors import InternalCompilerError, CompilationError
 from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex, ConstValue
 
 
+# TODO: closing upvalues
+
+
 class _BlockState:
     current_locals: LocalVarIndex
     labels: dict[str, int]
@@ -934,6 +937,7 @@ class WhileStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
+
         start = proto.pc
         evaluate_single(state, self.expr)
         proto.add_opcode("test")
@@ -943,7 +947,6 @@ class WhileStmt(Ast, Statement):
         proto.breaks.append([])
         self.block.emit(state)
         state.pop_block()
-
         proto.add_jump(start)
         block_end = proto.pc
 
@@ -960,14 +963,16 @@ class RepeatStmt(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
-        start = proto.pc
+
         state.push_block()
+        start = proto.pc
         proto.breaks.append([])
         self.block.emit(state)
+
         evaluate_single(state, self.expr)
         proto.add_opcode("test")
+        proto.add_jump(start)
         block_end = state.proto.pc
-        proto.add_jump(start, block_end)
         state.pop_block()
 
         for br in proto.breaks[-1]:

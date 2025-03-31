@@ -106,6 +106,12 @@ class Prototype:
             elif own_name == "jump":
                 target = i + int(parts[1])
                 result += f"  // to {target}"
+            elif own_name == "call":
+                params = int(parts[1])
+                returns = int(parts[2])
+                params = "(all)" if (params == 0) else params - 1
+                returns = "(all)" if (returns == 0) else returns - 1
+                result += f"  // {params} {returns}"
             out.append(result)
         return "\n".join(out)
 
