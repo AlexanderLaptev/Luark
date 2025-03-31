@@ -542,7 +542,8 @@ class LocalAssignStmt(Ast, Statement):
 
         # Filter out compile time consts from the expression list.
         exprs: list[Expression] = [x for x in exprs if (x is not None)]
-        adjust_static(state, len(variables), exprs)
+        if exprs:
+            adjust_static(state, len(variables), exprs)
 
         # Assign values.
         for i in variables:
