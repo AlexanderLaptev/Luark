@@ -367,11 +367,16 @@ def adjust_static(
         for i in range(len(expr_list) - 1):
             expr = expr_list[i]
             evaluate_single(state, expr)
-        if expr_list and isinstance(expr_list[-1], MultiresExpression):
-            expr: MultiresExpression = expr_list[-1]
-            expr.evaluate(state, 2 + difference)
+
+        if expr_list:
+            if isinstance(expr_list[-1], MultiresExpression):
+                expr: MultiresExpression = expr_list[-1]
+                expr.evaluate(state, 2 + difference)
+            else:
+                evaluate_single(state, expr_list[-1])
+                for _ in range(difference):
+                    state.proto.add_opcode("push_nil")
         else:
-            evaluate_single(state, expr_list[-1])
             for _ in range(difference):
                 state.proto.add_opcode("push_nil")
     else:
