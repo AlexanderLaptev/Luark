@@ -1268,9 +1268,11 @@ class LuarkTransformer(Transformer):
         return s[size:-size].removeprefix("\n")
 
     def _bin_num_op_expr(self, c: list, op: str, func: Callable):
-        if (isinstance(c[0], Number)
-                and isinstance(c[1], Number)):
-            return Number(func(c[0].value, c[1].value))
+        if isinstance(c[0], Number) and isinstance(c[1], Number):
+            try:
+                return Number(func(c[0].value, c[1].value))
+            except ArithmeticError:
+                return BinaryOpExpression(op, *c)
         else:
             return BinaryOpExpression(op, *c)
 
@@ -1329,22 +1331,11 @@ class LuarkTransformer(Transformer):
     def mul_expr(self, c):
         return self._bin_num_op_expr(c, "mul", lambda x, y: x * y)
 
-    def _divide(self, x: int | float, y: int | float):  # TODO: review
-        if y != 0:
-            return x / y
-        else:
-            if x > 0:
-                return float("inf")
-            elif x == 0:
-                return float("nan")
-            else:
-                return float("-inf")
-
     def div_expr(self, c):
-        return self._bin_num_op_expr(c, "div", self._divide)
+        return self._bin_num_op_expr(c, "div", lambda x, y: x / y)
 
     def fdiv_expr(self, c):
-        return self._bin_num_op_expr(c, "fdiv", lambda x, y: math.floor(self._divide(x, y)))
+        return self._bin_num_op_expr(c, "fdiv", lambda x, y: x // y)
 
     def mod_expr(self, c):
         return self._bin_num_op_expr(c, "mod", lambda x, y: x % y)
