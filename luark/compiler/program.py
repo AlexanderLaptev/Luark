@@ -103,6 +103,9 @@ class Prototype:
             elif own_name == "get_upvalue":
                 index = int(parts[1])
                 result += f"  // '{self.upvalues[index]}'"
+            elif own_name == "jump":
+                target = i + int(parts[1])
+                result += f"  // to {target}"
             out.append(result)
         return "\n".join(out)
 

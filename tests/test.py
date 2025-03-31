@@ -27,4 +27,6 @@ with open("REPORT.txt", "w") as report:
 
     total = len(tests)
     successful = total - failed
-    report.write(f"Compiled {successful} tests out of {total} ({failed} failed).\n")
+    message = f"Compiled {successful} tests out of {total} ({failed} failed).\n"
+    report.write(message)
+    print(message)

@@ -13,14 +13,12 @@ from luark.compiler.program import Program, Prototype, LocalVar, LocalVarIndex, 
 
 class _BlockState:
     current_locals: LocalVarIndex
-    breaks: list[int]
     labels: dict[str, int]
     const_locals: dict[str, "Expression"]
     gotos: dict
 
     def __init__(self):
         self.current_locals = LocalVarIndex()
-        self.breaks = []
         self.labels = {}
         self.const_locals = {}
         self.gotos = {}
@@ -46,6 +44,8 @@ class _ProtoState:
     consts: dict[ConstValue, int]
     opcodes: list[str]
 
+    breaks: list[list[int]]
+
     def __init__(self, func_name: str = None):
         self.locals = LocalVarIndex()
         self.locals_pool = []
@@ -65,6 +65,8 @@ class _ProtoState:
         self.upvalues = {}
         self.consts = {}
         self.opcodes = []
+
+        self.breaks = []
 
     @property
     def block(self) -> _BlockState:
@@ -134,6 +136,8 @@ class _ProtoState:
             raise CompilationError(f"Label '{name}' is not defined.")
 
     def add_opcode(self, opcode):
+        if opcode is None:
+            raise InternalCompilerError("Attempted to add a None opcode.")
         self.opcodes.append(opcode)
         self._pc += 1
 
@@ -142,7 +146,7 @@ class _ProtoState:
         for _ in range(count):
             # noinspection PyTypeChecker
             self.opcodes.append(None)
-            self._pc += 1
+            self._pc += count
         return pc
 
     def add_jump(self, to: int, from_: int = None):
@@ -161,7 +165,7 @@ class _ProtoState:
 
     def add_goto(self, label: str):
         self.block.gotos[self.pc] = (label, len(self.block.current_locals))
-        self.add_opcode(None)
+        self.reserve_opcodes(1)
 
     def compile(self) -> Prototype:
         prototype = Prototype()
@@ -383,7 +387,7 @@ def adjust_static(
             return_count = 2 if (difference == 0) else 1
             last.evaluate(state, return_count)
         else:
-            last.evaluate(state)
+            evaluate_single(state, last)
 
         for _ in range(-difference):  # diff is < 0 here, so negate it
             state.proto.add_opcode("pop")  # discard extra values
@@ -406,6 +410,11 @@ class Number(Ast, Expression):
         if isinstance(self.value, int):
             state.proto.add_opcode(f"push_int {self.value}")
         elif isinstance(self.value, float):
+            if math.isinf(self.value) or math.isnan(self.value):
+                index = state.proto.get_const_index(self.value)
+                state.proto.add_opcode(f"push_const {index}")
+                return
+
             frac = self.value - int(self.value)
             if frac == 0.0:
                 state.proto.add_opcode(f"push_float {int(self.value)}")
@@ -447,8 +456,8 @@ class BinaryOpExpression(Expression):
     right: Expression
 
     def evaluate(self, state: _ProgramState):
-        self.left.evaluate(state)
-        self.right.evaluate(state)
+        evaluate_single(state, self.left)
+        evaluate_single(state, self.right)
         state.proto.add_opcode(self.opcode)
 
 
@@ -513,8 +522,9 @@ class LocalAssignStmt(Ast, Statement):
                 else:
                     raise CompilationError(f"Unknown attribute: '{attr}'.")
 
-        for i in consts:
-            exprs.pop(i)
+        for i in consts:  # TODO: review
+            if i < len(exprs):
+                exprs.pop(i)
 
         if exprs:
             adjust_static(state, len(indices), exprs)
@@ -546,7 +556,7 @@ class DotAccess(Ast, Expression):
 
     def evaluate(self, state: _ProgramState):
         proto = state.proto
-        self.expression.evaluate(state)
+        evaluate_single(state, self.expression)
         index = proto.get_const_index(self.name)
         proto.add_opcode(f"push_const {index}")
         proto.add_opcode("get_table")
@@ -559,8 +569,8 @@ class TableAccess(Ast, Expression):
 
     def evaluate(self, state: _ProgramState):
         proto = state.proto
-        self.table.evaluate(state)
-        self.key.evaluate(state)
+        evaluate_single(state, self.table)
+        evaluate_single(state, self.key)
         proto.add_opcode("get_table")
 
 
@@ -586,7 +596,7 @@ class AssignStmt(Ast, Statement):
             elif isinstance(var, DotAccess):
                 index = proto.new_temporary()
                 temp_indices.append(index)
-                var.expression.evaluate(state)
+                evaluate_single(state, var.expression)
                 proto.add_opcode(f"store_local {index}")
             elif isinstance(var, TableAccess):
                 table_index = proto.new_temporary()
@@ -619,7 +629,7 @@ class AssignStmt(Ast, Statement):
                 proto.add_opcode("set_table")
             elif isinstance(var, TableAccess):
                 if isinstance(var.key, ConstExpr):
-                    var.key.evaluate(state)
+                    evaluate_single(state, var.key)
                 else:
                     key_index = temp_indices[temp_index]
                     temp_index -= 1
@@ -822,12 +832,12 @@ class TableConstructor(Ast, AsList, Expression):
         if self.fields:
             for i, field in enumerate(self.fields):
                 if isinstance(field, ExprField):
-                    field.value.evaluate(state)
+                    evaluate_single(state, field.value)
                     proto.add_opcode(f"load_local {table_local}")
-                    field.key.evaluate(state)
+                    evaluate_single(state, field.key)
                     proto.add_opcode("set_table")
                 elif isinstance(field, NameField):
-                    field.value.evaluate(state)
+                    evaluate_single(state, field.value)
                     proto.add_opcode(f"load_local {table_local}")
                     const_index = proto.get_const_index(field.name)
                     proto.add_opcode(f"push_const {const_index}")
@@ -840,7 +850,7 @@ class TableConstructor(Ast, AsList, Expression):
                     else:
                         proto.add_opcode("store_list 0")
                 elif isinstance(field, Expression):
-                    field.evaluate(state)
+                    evaluate_single(state, field)
                     proto.add_opcode(f"load_local {table_local}")
                     proto.add_opcode("store_list 1")
 
@@ -869,7 +879,7 @@ class FuncCall(Ast, MultiresExpression):
     def evaluate(self, state: _ProgramState, return_count: int = 1):
         proto = state.proto
         param_count = self._eval_params(state)
-        self.primary.evaluate(state)
+        evaluate_single(state, self.primary)
         proto.add_opcode(f"call {param_count} {return_count}")
 
     def _eval_params(self, state):
@@ -903,7 +913,7 @@ class MethodCall(FuncCall):
 
         proto.add_opcode(f"load_local {self_index}")
         param_count = self._eval_params(state)
-        self.primary.evaluate(state)
+        evaluate_single(state, self.primary)
         proto.add_opcode(f"call {param_count} {return_count}")
 
         proto.release_local(self_index)
@@ -927,10 +937,10 @@ class WhileStmt(Ast, Statement):
         start = proto.pc
         evaluate_single(state, self.expr)
         proto.add_opcode("test")
-        jump_pc = proto.pc
-        proto.add_opcode(None)
+        jump_pc = proto.reserve_opcodes(1)
 
-        body_block = state.push_block()
+        state.push_block()
+        proto.breaks.append([])
         self.block.emit(state)
         state.pop_block()
 
@@ -938,8 +948,9 @@ class WhileStmt(Ast, Statement):
         block_end = proto.pc
 
         proto.set_jump(jump_pc, block_end)
-        for br in body_block.breaks:
+        for br in proto.breaks[-1]:
             proto.set_jump(br, block_end)
+        proto.breaks.pop()
 
 
 @dataclass
@@ -948,21 +959,27 @@ class RepeatStmt(Ast, Statement):
     expr: Expression
 
     def emit(self, state: _ProgramState):
+        proto = state.proto
+        start = proto.pc
         state.push_block()
-        start = state.proto.pc
+        proto.breaks.append([])
         self.block.emit(state)
         evaluate_single(state, self.expr)
-        state.proto.add_opcode("test")
-        end = state.proto.pc
-        state.proto.add_jump(start, end)
+        proto.add_opcode("test")
+        block_end = state.proto.pc
+        proto.add_jump(start, block_end)
         state.pop_block()
+
+        for br in proto.breaks[-1]:
+            state.proto.set_jump(br, block_end)
+        proto.breaks.pop()
 
 
 class BreakStmt(Ast, Statement):
     def emit(self, state: _ProgramState):
         pc = state.proto.pc
-        state.proto.add_opcode(None)
-        state.proto.block.breaks.append(pc)
+        state.proto.reserve_opcodes(1)
+        state.proto.breaks[-1].append(pc)
 
 
 @dataclass
@@ -975,7 +992,7 @@ class IfStmt(Ast, AsList, Statement):
     def __init__(self, children: list):
         self.end_jumps: list[int] = []
 
-        if isinstance(children[0], Expression):
+        if isinstance(children[0], Expression | MultiresExpression):
             self.condition: Expression = children[0]
         else:
             raise InternalCompilerError("Illegal 'if' statement: non-expression in condition.")
@@ -1029,17 +1046,19 @@ class IfStmt(Ast, AsList, Statement):
 def emit_for_loop_body(
         state: _ProgramState,
         body: Block,
-        block: _BlockState,
         loop_start_pc: int,
 ):
     proto = state.proto
     escape_jump_pc = proto.reserve_opcodes(1)
+    proto.breaks.append([])
     body.emit(state)
     proto.add_jump(loop_start_pc)
 
     proto.set_jump(escape_jump_pc)
-    for br in block.breaks:
+    for br in proto.breaks[-1]:
         proto.set_jump(br)
+    proto.breaks.pop()
+    state.pop_block()
 
 
 @dataclass
@@ -1052,7 +1071,7 @@ class ForLoopNum(Ast, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
-        block = state.push_block()
+        state.push_block()
 
         proto.linear_mode = True
         control_index = proto.new_local(self.control_name)
@@ -1070,8 +1089,7 @@ class ForLoopNum(Ast, Statement):
 
         loop_start_pc = proto.pc
         proto.add_opcode(f"test_for {control_index}")
-        emit_for_loop_body(state, self.body, block, loop_start_pc)
-        state.pop_block()
+        emit_for_loop_body(state, self.body, loop_start_pc)
 
 
 @dataclass
@@ -1087,7 +1105,7 @@ class ForLoopGen(Ast, AsList, Statement):
 
     def emit(self, state: _ProgramState):
         proto = state.proto
-        block = state.push_block()
+        state.push_block()
 
         proto.linear_mode = True
         iterator_index = proto.new_temporary()
@@ -1118,8 +1136,7 @@ class ForLoopGen(Ast, AsList, Statement):
 
         proto.add_opcode(f"load_local {control_index}")
         proto.add_opcode(f"test_nil")
-        emit_for_loop_body(state, self.body, block, loop_start_pc)
-        state.pop_block()
+        emit_for_loop_body(state, self.body, loop_start_pc)
 
 
 @dataclass
@@ -1177,6 +1194,9 @@ class LuarkTransformer(Transformer):
             return Number(float(num[0]) * 10 ** float(num[1]))
         else:
             raise InternalCompilerError(f"Illegal decimal float literal: '{f}'")
+
+    def hex_number(self, n):
+        raise NotImplementedError  # TODO!
 
     def empty_stmt(self, _):
         return Discard
@@ -1282,7 +1302,7 @@ class LuarkTransformer(Transformer):
     def mul_expr(self, c):
         return self._bin_num_op_expr(c, "mul", lambda x, y: x * y)
 
-    def _divide(self, x: int | float, y: int | float):
+    def _divide(self, x: int | float, y: int | float):  # TODO: review
         if y != 0:
             return x / y
         else:
@@ -1297,7 +1317,7 @@ class LuarkTransformer(Transformer):
         return self._bin_num_op_expr(c, "div", self._divide)
 
     def fdiv_expr(self, c):
-        return self._bin_num_op_expr(c, "fdiv", lambda x, y: math.floor(x / y))
+        return self._bin_num_op_expr(c, "fdiv", lambda x, y: math.floor(self._divide(x, y)))
 
     def mod_expr(self, c):
         return self._bin_num_op_expr(c, "mod", lambda x, y: x % y)
