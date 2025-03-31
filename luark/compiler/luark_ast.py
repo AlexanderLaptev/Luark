@@ -364,21 +364,21 @@ def adjust_static(
 
     difference = count - len(expr_list)
     if difference > 0:  # append nils
-        for i in range(len(expr_list) - 1):
-            expr = expr_list[i]
-            evaluate_single(state, expr)
-
         if expr_list:
             if isinstance(expr_list[-1], MultiresExpression):
                 expr: MultiresExpression = expr_list[-1]
                 expr.evaluate(state, 2 + difference)
             else:
-                evaluate_single(state, expr_list[-1])
                 for _ in range(difference):
                     state.proto.add_opcode("push_nil")
+                evaluate_single(state, expr_list[-1])
         else:
             for _ in range(difference):
                 state.proto.add_opcode("push_nil")
+
+        for i in range(len(expr_list) - 1):
+            expr = expr_list[i]
+            evaluate_single(state, expr)
     else:
         # Even if there are more values then expected,
         # we still have to evaluate them all and simply
@@ -544,7 +544,6 @@ class LocalAssignStmt(Ast, Statement):
         adjust_static(state, len(variables), exprs)
 
         # Assign values.
-        variables.reverse()
         for i in variables:
             name = self.attr_names[i].name
             index = proto.get_local_index(name)
@@ -637,10 +636,11 @@ class AssignStmt(Ast, Statement):
             else:
                 raise InternalCompilerError("Illegal assignment.")
 
-        adjust_static(state, len(self.var_list), self.expr_list)
+        exprs = self.expr_list
+        adjust_static(state, len(self.var_list), exprs)
 
         temp_index = len(temp_indices) - 1  # ensure we read the indices in reverse order
-        for var in self.var_list[::-1]:
+        for var in reversed(self.var_list):
             if isinstance(var, Var):
                 state.assign(state, var.name)
             elif isinstance(var, DotAccess):
@@ -811,7 +811,7 @@ class ReturnStmt(Ast, Statement):
         self.exprs: list[Expression] | None = exprs
 
     def emit(self, state: _ProgramState):
-        exprs = self.exprs if self.exprs else []
+        exprs = self.exprs[::-1] if self.exprs else []
         if exprs:
             for i in range(len(exprs) - 1):
                 expr = exprs[i]
