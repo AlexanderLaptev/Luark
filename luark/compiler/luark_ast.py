@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, TypeAlias
 
-from lark import Token
-from lark.ast_utils import Ast, AsList
+from lark import Token, v_args
+from lark.ast_utils import Ast, AsList, WithMeta
+from lark.tree import Meta
 from lark.visitors import Transformer, Discard
 
 from luark.compiler.errors import InternalCompilerError, CompilationError
@@ -403,12 +404,99 @@ def adjust_static(
 
 
 @dataclass
-class String(Ast, Expression):
+class String(Ast, WithMeta, Expression):
+    ESCAPE_SEQUENCES = {
+        "a": b"\a",
+        "b": b"\b",
+        "f": b"\f",
+        "n": b"\n",
+        "r": b"\r",
+        "t": b"\t",
+        "v": b"\v",
+        "\\": b"\\",
+        "\"": b"\"",
+        "\'": b"\'",
+        "\n": b"\n",
+    }
+
+    meta: Meta
     value: str
 
     def evaluate(self, state: _ProgramState):
         index = state.proto.get_const_index(self.value)
         state.proto.add_opcode(f"push_const {index}")
+
+    def _parse_string(self, string: str) -> bytes:
+        string = string[1:-1]  # strip quotes
+
+        lines = string.split("\\z")
+        for i in range(1, len(lines)):
+            lines[i] = lines[i].lstrip()
+        string = "".join(lines)
+
+        # noinspection PyBroadException
+        try:
+            out_bytes = []
+            i = 0  # first char
+            while i < len(string):
+                c = string[i]
+                if c == "\\":
+                    i += 1  # after slash
+                    c = string[i]
+                    if c in self.ESCAPE_SEQUENCES:
+                        out_bytes.append(self.ESCAPE_SEQUENCES[c])
+                        i += 1
+                    else:
+                        i += 1  # after sequence char
+                        if c == "x":
+                            value = int(string[i:i + 2], 16)
+                            out_bytes.append(value.to_bytes(1, byteorder="big", signed=False))
+                        elif c == "u":
+                            if string[i] != "{":
+                                raise CompilationError()
+                            i += 1  # first inside braces
+
+                            brace = string.find("}", i)
+                            if brace < 0:
+                                raise CompilationError()
+
+                            value = int(string[i:brace])
+                            if value >= 2 ** 31:
+                                raise CompilationError()
+
+                            byte_size = (value.bit_length() + 7) // 8
+                            out_bytes.append(value.to_bytes(byte_size, byteorder="big", signed=False))
+                        elif str.isdigit(c):
+                            left = i - 1
+                            size = 1
+                            for j in range(2):
+                                if (i + j) >= len(string):
+                                    break
+                                if str.isdigit(string[i + j]):
+                                    size += 1
+                                else:
+                                    break
+
+                            value = int(string[left:left + size], 10)
+                            if not 0 <= value <= 255:
+                                raise CompilationError()
+
+                            out_bytes.append(value.to_bytes(1, byteorder="big", signed=False))
+                else:
+                    out_bytes.append(c.encode("utf-8"))
+                    i += 1
+        except Exception:
+            raise CompilationError(f"Illegal string literal (line {self.meta.line}): '{string}'.")
+
+        return b"".join(out_bytes)
+
+
+@dataclass
+class Multistring(String):
+    def _parse_string(self, string: str) -> bytes:
+        multistr = str(self.value)
+        size = multistr.find("[", 1) + 1
+        return multistr[size:-size].removeprefix("\n").encode("utf-8")
 
 
 @dataclass
@@ -1244,29 +1332,17 @@ class LuarkTransformer(Transformer):
     def var_list(self, varz) -> list[Var | DotAccess | TableAccess]:
         return varz
 
-    def name_list(self, names) -> list[str]:
-        return names
-
     def attrib_name_list(self, names) -> list[AttribName]:
         return names
 
+    def STRING(self, c):
+        return c
+
+    def MULTISTRING(self, c):
+        return c
+
     def ID(self, s):
         return str(s)
-
-    # TODO: raise error on invalid escape sequence
-    def STRING(self, s: str):
-        s = s[1:-1]  # strip quotes
-        s = s.split("\\z")
-        for i in range(1, len(s)):  # don't strip whitespace on the first line
-            s[i] = s[i].lstrip()  # strip whitespace only on the left
-        s = ''.join(s)
-        s = s.encode("utf_8").decode("unicode_escape")
-        return s
-
-    def MULTISTRING(self, s):
-        s = str(s)
-        size = s.find("[", 1) + 1
-        return s[size:-size].removeprefix("\n")
 
     def _bin_num_op_expr(self, c: list, op: str, func: Callable):
         if isinstance(c[0], Number) and isinstance(c[1], Number):
@@ -1316,10 +1392,11 @@ class LuarkTransformer(Transformer):
     def rsh_expr(self, c):
         return BinaryOpExpression("rsh", *c)
 
-    def concat_expr(self, c):
+    @v_args(meta=True)
+    def concat_expr(self, meta, c):
         if (isinstance(c[0], String)
                 and isinstance(c[1], String)):
-            return String(c[0].value + c[1].value)
+            return String(meta, c[0].value + c[1].value)
         else:
             return BinaryOpExpression("concat", *c)
 

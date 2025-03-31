@@ -7,7 +7,8 @@ block: statement* return_stmt?
 number: DEC_INT -> dec_int
     | DEC_FLOAT -> dec_float
     | HEX_NUMBER -> hex_number
-string: STRING | MULTISTRING
+string: STRING -> string
+    | MULTISTRING -> multistring
 varargs: "..."
 
 var: ID
