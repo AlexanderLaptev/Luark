@@ -318,13 +318,13 @@ class _ProgramState:
 class Statement(ABC):
     @abstractmethod
     def emit(self, state: _ProgramState):
-        raise NotImplementedError
+        pass
 
 
 class Expression(ABC):
     @abstractmethod
     def evaluate(self, state: _ProgramState):
-        raise NotImplementedError
+        pass
 
 
 class MultiresExpression(ABC):
