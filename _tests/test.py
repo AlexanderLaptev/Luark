@@ -7,7 +7,7 @@ compiler = Compiler()
 
 TEST_DIR = "lua-5.4.7-tests"
 
-with open("REPORT.txt", "w") as report:
+with open("../tests/REPORT.txt", "w") as report:
     failed = 0
     tests = os.listdir(TEST_DIR)
     for test in tests:

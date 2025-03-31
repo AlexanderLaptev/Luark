@@ -116,7 +116,7 @@ class PrototypeState:
 
     def add_opcode(self, opcode):
         if opcode is None:
-            raise InternalCompilerError("Attempted to add a None opcode.")
+            raise InternalCompilerError("Attempted to add a None program.")
         self.opcodes.append(opcode)
         self._pc += 1
 

@@ -74,7 +74,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | "(" expr ")" -> primary
 expr_list: expr ("," expr)*
 
-?statement: ";" -> empty_stmt
+?statement: ";" -> empty_statement
     | assign_stmt
     | local_assign_stmt
     | func_def_stmt
