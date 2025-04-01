@@ -1,7 +1,7 @@
-from lark import Token, Transformer, v_args
+from lark import Discard, Token, Transformer, v_args
 from lark.tree import Meta
 
-from luark.compiler.ast import Block, Chunk, EmptyStatement
+from luark.compiler.ast import Block, Chunk
 from luark.compiler.ast.assignment import AssignmentStatement
 from luark.compiler.ast.break_statement import BreakStatement
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
@@ -167,12 +167,11 @@ class LuarkTransformer(Transformer):
         return NilValue.INSTANCE
 
     @v_args(inline=False)
-    def expression_list(self, expressions: list[Expression]):
-        return expressions
+    def expression_list(self, expressions: list[Expression]) -> ExpressionList:
+        return ExpressionList(expressions)
 
-    @v_args(meta=True)
-    def empty_statement(self, meta, _):
-        return EmptyStatement(meta)
+    def empty_statement(self, _) -> Discard:
+        return Discard
 
     @v_args(meta=True)
     def while_statement(
