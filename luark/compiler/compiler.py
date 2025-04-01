@@ -1,4 +1,6 @@
+import os.path
 import pkgutil
+import sys
 from os import PathLike
 
 from lark import Lark, UnexpectedInput
@@ -6,6 +8,7 @@ from lark import Lark, UnexpectedInput
 from luark.compiler.ast.chunk import Chunk
 from luark.compiler.ast.transformer import LuarkTransformer
 from luark.compiler.compiler_state import CompilerState
+from luark.compiler.exceptions import CompilationError
 from luark.program import Program
 
 
@@ -25,12 +28,16 @@ class Compiler:
         if self._lark is None:
             self._init_lark()
 
-    def compile_string(self, source: str) -> Program:
-        tree = self._lark.parse(
-            source,
-            start="start",
-            on_error=self._on_error
-        )
+    def compile_string(self, source: str, file_name: str = "<input>") -> Program:
+        try:
+            tree = self._lark.parse(
+                source,
+                start="start",
+            )
+        except UnexpectedInput as e:  # TODO: enhance error handling
+            self._log_error(e, source, file_name)
+            raise CompilationError(e)
+
         if self.debug:
             print(tree.pretty())
 
@@ -43,10 +50,7 @@ class Compiler:
         source: str
         with open(file_path, "r") as source_file:
             source = source_file.read()
-        return self.compile_string(source)
-
-    def _on_error(self, error: UnexpectedInput) -> bool | None:
-        pass
+        return self.compile_string(source, os.path.basename(file_path))
 
     def _init_lark(self) -> None:
         grammar = pkgutil.get_data(
@@ -60,3 +64,8 @@ class Compiler:
             **Compiler._LARK_PARAMS,
             debug=self.debug,
         )
+
+    def _log_error(self, error: UnexpectedInput, source: str, file_name: str) -> None:
+        index = error.column - 1
+        context = source[index:index + 5].strip() + "..."
+        print(f"{file_name}:{error.line}: syntax error at column {error.column} near '{context}'", file=sys.stderr)
