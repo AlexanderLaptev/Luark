@@ -2,7 +2,7 @@ from lark import Discard, Token, Transformer, v_args
 from lark.tree import Meta
 
 from luark.compiler.ast import Block, Chunk
-from luark.compiler.ast.assignment import AssignmentStatement
+from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.break_statement import BreakStatement
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
 from luark.compiler.ast.expressions import Expression, ExpressionList
@@ -53,7 +53,7 @@ class LuarkTransformer(Transformer):
     def number(self, number: int):
         return Number(number)
 
-    @v_args(meta=True)
+    @v_args(meta=True, inline=True)
     def string(self, meta: Meta, token: Token):
         return String(meta, token)
 
@@ -170,7 +170,7 @@ class LuarkTransformer(Transformer):
     def expression_list(self, expressions: list[Expression]) -> ExpressionList:
         return ExpressionList(expressions)
 
-    def empty_statement(self, _) -> Discard:
+    def empty_statement(self) -> Discard:
         return Discard
 
     @v_args(meta=True)
@@ -230,8 +230,10 @@ class LuarkTransformer(Transformer):
         return LocalAssignmentStatement(meta, names, expression_list)
 
     @v_args(inline=False)
-    def attributed_name_list(self, names: list[AttributedName]) -> list[
-        AttributedName]:
+    def attributed_name_list(
+            self,
+            names: list[AttributedName]
+    ) -> list[AttributedName]:
         return names
 
     def attributed_name(self, name: str, attribute: str) -> AttributedName:

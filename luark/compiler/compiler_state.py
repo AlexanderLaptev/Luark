@@ -4,8 +4,17 @@ ConstType: TypeAlias = int | float | bytes
 
 
 class _PrototypeState:
-    def __init__(self):
+    def __init__(
+            self,
+            func_name: str,
+            fixed_param_count: int,
+            is_variadic: bool,
+    ):
         from luark.opcode import Opcode
+
+        self.func_name = func_name
+        self.fixed_param_count = fixed_param_count
+        self.is_variadic = is_variadic
 
         self.opcodes: list[Opcode] = []
 
@@ -14,34 +23,57 @@ class CompilerState:
     from luark.opcode import Opcode
 
     def __init__(self):
-        self.consts: dict[ConstType, int] = {}
-        self.protos: list[_PrototypeState] = []
+        self._is_compiling: bool = False
+        self._consts: dict[ConstType, int] = {}
 
-    def begin_chunk(self) -> None:
-        pass
+        self._protos: list[_PrototypeState] = []
+        self._stack: list[_PrototypeState] = []
+        self._current_proto: _PrototypeState | None = None
 
-    def end_chunk(self) -> None:
-        pass
+        self._num_lambdas = 0
 
-    def begin_proto(self) -> None:
-        pass
+    def begin_proto(
+            self,
+            function_name: str,
+            fixed_param_count: int,
+            is_variadic: bool,
+    ) -> int:
+        proto = _PrototypeState(function_name, fixed_param_count, is_variadic)
+        index = len(self._stack)
+
+        self._protos.append(proto)
+        self._stack.append(proto)
+        self._current_proto = proto
+
+        return index
 
     def end_proto(self) -> None:
+        self._current_proto = self._stack.pop()
+
+    def begin_block(self) -> None:
         pass
+
+    def end_block(self) -> None:
+        pass
+
+    def next_lambda_index(self) -> int:
+        result = self._num_lambdas
+        self._num_lambdas += 1
+        return result
 
     def add_opcode(self, opcode: Opcode) -> None:
         pass
 
     def get_const_index(self, value: ConstType) -> int:
-        if value in self.consts:
-            return self.consts[value]
+        if value in self._consts:
+            return self._consts[value]
         else:
-            index = len(self.consts)
-            self.consts[value] = index
+            index = len(self._consts)
+            self._consts[value] = index
             return index
 
     def get_const(self, index: int) -> ConstType:
-        for k, v in self.consts.items():
+        for k, v in self._consts.items():
             if v == index:
                 return k
         raise IndexError

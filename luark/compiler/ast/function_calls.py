@@ -43,4 +43,4 @@ class FunctionCallStatement(Statement):
     function_call: FunctionCall
 
     def compile(self, state: CompilerState) -> None:
-        raise None
+        raise NotImplementedError

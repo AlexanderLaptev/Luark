@@ -11,4 +11,4 @@ class AssignmentStatement(Statement):
     expression_list: ExpressionList
 
     def compile(self, state: CompilerState) -> None:
-        pass
+        raise NotImplementedError

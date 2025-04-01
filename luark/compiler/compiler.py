@@ -28,7 +28,11 @@ class Compiler:
         if self._lark is None:
             self._init_lark()
 
-    def compile_string(self, source: str, file_name: str = "<input>") -> Program:
+    def compile_string(
+            self,
+            source: str,
+            file_name: str = "<input>"
+    ) -> Program:
         try:
             tree = self._lark.parse(
                 source,
@@ -46,7 +50,10 @@ class Compiler:
         program = chunk.compile(state)
         return program
 
-    def compile_file(self, file_path: int | str | bytes | PathLike[str] | PathLike[bytes]) -> Program:
+    def compile_file(
+            self,
+            file_path: int | str | bytes | PathLike[str] | PathLike[bytes]
+    ) -> Program:
         source: str
         with open(file_path, "r") as source_file:
             source = source_file.read()
@@ -65,7 +72,15 @@ class Compiler:
             debug=self.debug,
         )
 
-    def _log_error(self, error: UnexpectedInput, source: str, file_name: str) -> None:
+    def _log_error(
+            self,
+            error: UnexpectedInput,
+            source: str,
+            file_name: str
+    ) -> None:
         index = error.column - 1
         context = source[index:index + 5].strip() + "..."
-        print(f"{file_name}:{error.line}: syntax error at column {error.column} near '{context}'", file=sys.stderr)
+        print(
+            f"{file_name}:{error.line}: syntax error at column {error.column} near '{context}'",
+            file=sys.stderr
+        )

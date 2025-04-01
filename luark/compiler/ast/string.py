@@ -112,7 +112,7 @@ class String(CompileTimeConstant):
     def __init__(self, meta: Meta, token: Token):
         self.meta = meta
         if token.type == "STRING":
-            self.value = parse_string(token)
+            self.value = parse_string(meta, token)
         elif token.type == "MULTISTRING":
             self.value = parse_multistring(token)
         else:

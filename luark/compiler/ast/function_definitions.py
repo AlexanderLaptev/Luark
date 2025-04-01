@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Self
 
 from luark.compiler.ast import Block
 from luark.compiler.ast.expressions import Expression
@@ -26,10 +25,6 @@ class ParameterList:
         else:
             self.names = []
 
-    @classmethod
-    def of_varargs(cls) -> Self:
-        return ParameterList([Varargs()])
-
 
 @dataclass
 class FunctionBody:
@@ -40,10 +35,27 @@ class FunctionBody:
 @dataclass
 class FunctionDefinition(Expression):
     body: FunctionBody
-    name: str = None
+    name: str | None = None
 
-    def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+    def evaluate(
+            self,
+            state: CompilerState,
+            create_closure: bool = True
+    ) -> None:
+        name: str = self.name
+        if self.name is None:
+            name = f"<lambda#{state.next_lambda_index()}>"
+
+        params = self.body.parameter_list
+        param_count: int = len(params.names)
+        is_variadic: bool = params.has_varargs
+
+        index: int = state.begin_proto(name, param_count, is_variadic)
+        state.begin_block()
+        for statement in self.body.block.statements:
+            statement.compile(state)
+        state.end_block()
+        state.end_proto()
 
 
 @dataclass
