@@ -2,115 +2,112 @@
 
 start: SHEBANG? chunk
 chunk: block
-block: statement* return_stmt?
+block: statement* return_statement?
 
-number: DEC_INT -> dec_int
-    | DEC_FLOAT -> dec_float
-    | HEX_NUMBER -> hex_number
-string: STRING -> string
-    | MULTISTRING -> multistring
+number: DECIMAL_INT | DECIMAL_FLOAT | HEX_INT | HEX_FLOAT
+string: STRING | MULTISTRING
 varargs: "..."
 
 var: ID
     | primary "." ID -> dot_access
-    | primary "[" expr "]" -> table_access
+    | primary "[" expression "]" -> table_access
 var_list: var ("," var)*
 
 table_constructor: "{" [_field_list] "}"
 _field_list: field (("," | ";") field)* ("," | ";")?
-?field: "[" expr "]" "=" expr -> expr_field
-    | ID "=" expr -> name_field
-    | expr
+?field: "[" expression "]" "=" expression -> expression_field
+    | ID "=" expression -> name_field
+    | expression
 
-?expr: or_expr
-?or_expr: and_expr
-    | or_expr "or" and_expr
-?and_expr: comp_expr
-    | and_expr "and" comp_expr
-?comp_expr: bw_or_expr
-    | comp_expr "<" bw_or_expr -> comp_lt
-    | comp_expr ">" bw_or_expr -> comp_gt
-    | comp_expr "<=" bw_or_expr -> comp_le
-    | comp_expr ">=" bw_or_expr -> comp_ge
-    | comp_expr "==" bw_or_expr -> comp_eq
-    | comp_expr "~=" bw_or_expr -> comp_neq
-?bw_or_expr: bw_xor_expr
-    | bw_or_expr "|" bw_xor_expr
-?bw_xor_expr: bw_and_expr
-    | bw_xor_expr "~" bw_and_expr
-?bw_and_expr: bw_shift_expr
-    | bw_and_expr "&" bw_shift_expr
-?bw_shift_expr: concat_expr
-    | bw_shift_expr "<<" concat_expr -> lsh_expr
-    | bw_shift_expr ">>" concat_expr -> rsh_expr
-?concat_expr: add_expr
-    | add_expr ".." concat_expr
-?add_expr: mul_expr
-    | add_expr "+" mul_expr -> add_expr
-    | add_expr "-" mul_expr -> sub_expr
-?mul_expr: unary_expr
-    | mul_expr "*" unary_expr -> mul_expr
-    | mul_expr "/" unary_expr -> div_expr
-    | mul_expr "//" unary_expr -> fdiv_expr
-    | mul_expr "%" unary_expr -> mod_expr
-?unary_expr: exp_expr
-    | "-" unary_expr -> unary_minus
-    | "not" unary_expr -> unary_not
-    | "#" unary_expr -> unary_length
-    | "~" unary_expr -> unary_bw_not
-?exp_expr: literal
-    | literal "^" unary_expr
+?expression: or_expression
+?or_expression: and_expression
+    | or_expression "or" and_expression
+?and_expression: comparison_expression
+    | and_expression "and" comparison_expression
+?!comparison_expression: bitwise_or_expression
+    | comparison_expression "<" bitwise_or_expression -> comparison_lt
+    | comparison_expression ">" bitwise_or_expression -> comparison_gt
+    | comparison_expression "<=" bitwise_or_expression -> comparison_le
+    | comparison_expression ">=" bitwise_or_expression -> comparison_ge
+    | comparison_expression "==" bitwise_or_expression -> comparison_eq
+    | comparison_expression "~=" bitwise_or_expression -> comparison_neq
+?bitwise_or_expression: bitwise_xor_expression
+    | bitwise_or_expression "|" bitwise_xor_expression
+?bitwise_xor_expression: bitwise_and_expression
+    | bitwise_xor_expression "~" bitwise_and_expression
+?bitwise_and_expression: bitwise_shift_expression
+    | bitwise_and_expression "&" bitwise_shift_expression
+?bitwise_shift_expression: concat_expression
+    | bitwise_shift_expression "<<" concat_expression -> lshift_expression
+    | bitwise_shift_expression ">>" concat_expression -> rshift_expression
+?concat_expression: add_expression
+    | add_expression ".." concat_expression
+?add_expression: mul_expression
+    | add_expression "+" mul_expression -> add_expression
+    | add_expression "-" mul_expression -> sub_expression
+?mul_expression: unary_expression
+    | mul_expression "*" unary_expression -> mul_expression
+    | mul_expression "/" unary_expression -> div_expression
+    | mul_expression "//" unary_expression -> fdiv_expression
+    | mul_expression "%" unary_expression -> mod_expression
+?unary_expression: exp_expression
+    | "-" unary_expression -> unary_minus
+    | "not" unary_expression -> unary_not
+    | "#" unary_expression -> unary_length
+    | "~" unary_expression -> unary_bitwise_not
+?exp_expression: literal
+    | literal "^" unary_expression
 ?literal: primary
     | number
     | string
-    | func_def
+    | function_definition
     | table_constructor
     | "true" -> true
     | "false" -> false
     | "nil" -> nil
     | varargs
 ?primary.10: var
-    | func_call
-    | "(" expr ")" -> primary
-expr_list: expr ("," expr)*
+    | function_call
+    | "(" expression ")"
+expression_list: expression ("," expression)*
 
 ?statement: ";" -> empty_statement
-    | assign_stmt
-    | local_assign_stmt
-    | func_def_stmt
-    | func_call
+    | assignment_statement
+    | local_assignment_statement
+    | function_definition_statement
+    | function_call -> function_call_statement
     | "do" block "end"
-    | if_stmt
-    | "while" expr "do" block "end" -> while_stmt
-    | "repeat" block "until" expr -> repeat_stmt
-    | "break" -> break_stmt
+    | if_statement
+    | "while" expression "do" block "end" -> while_statement
+    | "repeat" block "until" expression -> repeat_statement
+    | "break" -> break_statement
     | for_loop
     | "::" ID "::" -> label
-    | "goto" ID -> goto_stmt
-return_stmt: "return" expr_list? ";"?
+    | "goto" ID -> goto_statement
+return_statement: "return" expression_list? ";"?
 
-assign_stmt: var_list "=" expr_list
-local_assign_stmt: "local" attrib_name_list ["=" expr_list]
-attrib_name_list: attrib_name ("," attrib_name)*
-attrib_name: ID ["<" ID ">"]
+assignment_statement: var_list "=" expression_list
+local_assignment_statement: "local" attributed_name_list ["=" expression_list]
+attributed_name_list: attributed_name ("," attributed_name)*
+attributed_name: ID ["<" ID ">"]
 
-func_call: primary func_call_params
-    | primary ":" ID func_call_params -> method_call
-func_call_params: "(" [expr_list] ")" | table_constructor | string
+function_call: primary function_call_parameters
+    | primary ":" ID function_call_parameters -> method_call
+function_call_parameters: "(" [expression_list] ")" | table_constructor | string
 
-func_def: "function" func_body
-func_body: "(" [param_list] ")" block "end"
-param_list: ID ("," ID)* ["," varargs] | varargs
-func_def_stmt: "function" func_name func_body
-    | "local" "function" ID func_body -> local_func_def_stmt
-func_name: ID ("." ID)*
+function_definition: "function" function_body
+function_body: "(" [parameter_list] ")" block "end"
+parameter_list: ID ("," ID)* ["," varargs] | varargs
+function_definition_statement: "function" function_name function_body
+    | "local" "function" ID function_body -> local_function_definition_statement
+function_name: ID ("." ID)*
     | ID ("." ID)* ":" ID -> method_name
 
-if_stmt: "if" expr "then" block else_if* ["else" block] "end"
-else_if: "elseif" expr "then" block
+if_statement: "if" expression "then" block else_if* ["else" block] "end"
+else_if: "elseif" expression "then" block
 
-for_loop: "for" ID "=" expr "," expr ["," expr] "do" block "end" -> for_loop_num
-    | "for" ID ("," ID)* "in" expr_list "do" block "end" -> for_loop_gen
+for_loop: "for" ID "=" expression "," expression ["," expression] "do" block "end" -> numeric_for_loop
+    | "for" ID ("," ID)* "in" expression_list "do" block "end" -> generic_for_loop
 
 ID: /[^\W\d]\w*/
 SHEBANG: /^#(.*)/
@@ -121,13 +118,12 @@ LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
 
-DEC_NUMBER: DEC_INT | DEC_FLOAT
-DEC_INT: /\d+(?:[eE][+-]?\d+)?/
-DEC_FLOAT: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
-HEX_NUMBER: HEX_INT | HEX_FLOAT
+DECIMAL_INT: /\d+(?:[eE][+-]?\d+)?/
+DECIMAL_FLOAT: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
 HEX_INT: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
 HEX_FLOAT: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
 
 %ignore WS
+%ignore SHEBANG
 %ignore COMMENT
 %ignore LONG_COMMENT
