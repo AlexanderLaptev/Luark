@@ -13,7 +13,11 @@ class Expression(ABC):
 
 class MultiresExpression(Expression):
     @abstractmethod
-    def evaluate(self, state: CompilerState, return_count: int | Literal["all"] = 1) -> None:
+    def evaluate(
+            self,
+            state: CompilerState,
+            return_count: int | Literal["all"] = 1
+    ) -> None:
         pass
 
 

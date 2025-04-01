@@ -13,4 +13,3 @@ class WhileStatement(Statement):
 
     def compile(self, state: CompilerState) -> None:
         raise NotImplementedError
-

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 
 from luark.compiler.ast.block import Block
-from luark.compiler.ast.function_definitions import FunctionBody, FunctionDefinition, ParameterList
+from luark.compiler.ast.function_definitions import (
+    FunctionBody,
+    FunctionDefinition, ParameterList
+)
 from luark.compiler.compiler_state import CompilerState
 
 

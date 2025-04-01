@@ -25,7 +25,12 @@ class FunctionCall(Expression):
 class MethodCall(FunctionCall):
     method_name: str
 
-    def __init__(self, primary: Expression, method_name: str, parameters: FunctionCallParameters):
+    def __init__(
+            self,
+            primary: Expression,
+            method_name: str,
+            parameters: FunctionCallParameters
+    ):
         super().__init__(primary, parameters)
         self.method_name = method_name
 

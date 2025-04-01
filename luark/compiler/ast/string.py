@@ -46,7 +46,9 @@ def parse_string(meta: Meta, source: str) -> bytes:
                     i += 1  # after sequence char
                     if c == "x":
                         value = int(string[i:i + 2], 16)
-                        out_bytes.append(value.to_bytes(1, byteorder="big", signed=False))
+                        out_bytes.append(
+                            value.to_bytes(1, byteorder="big", signed=False)
+                        )
                     elif c == "u":
                         if string[i] != "{":
                             raise CompilationError
@@ -61,7 +63,13 @@ def parse_string(meta: Meta, source: str) -> bytes:
                             raise CompilationError
 
                         byte_size = (value.bit_length() + 7) // 8
-                        out_bytes.append(value.to_bytes(byte_size, byteorder="big", signed=False))
+                        out_bytes.append(
+                            value.to_bytes(
+                                byte_size,
+                                byteorder="big",
+                                signed=False
+                            )
+                        )
                     elif str.isdigit(c):
                         left = i - 1
                         size = 1
@@ -77,12 +85,16 @@ def parse_string(meta: Meta, source: str) -> bytes:
                         if not 0 <= value <= 255:
                             raise CompilationError
 
-                        out_bytes.append(value.to_bytes(1, byteorder="big", signed=False))
+                        out_bytes.append(
+                            value.to_bytes(1, byteorder="big", signed=False)
+                        )
             else:
                 out_bytes.append(c.encode("utf-8"))
                 i += 1
     except Exception:
-        raise CompilationError(f"Illegal string literal (line {meta.line}): '{string}'.")
+        raise CompilationError(
+            f"Illegal string literal (line {meta.line}): '{string}'."
+        )
 
     return b"".join(out_bytes)
 
@@ -104,7 +116,9 @@ class String(CompileTimeConstant):
         elif token.type == "MULTISTRING":
             self.value = parse_multistring(token)
         else:
-            raise InternalCompilerError(f"Illegal string literal token: {token.type}.")
+            raise InternalCompilerError(
+                f"Illegal string literal token: {token.type}."
+            )
 
     def evaluate(self, state: CompilerState) -> None:
         pass
