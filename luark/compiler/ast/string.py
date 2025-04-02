@@ -30,7 +30,6 @@ def parse_string(source: str) -> bytes:
         lines[i] = lines[i].lstrip()
     string = "".join(lines)
 
-    # TODO: refine exception handling
     # noinspection PyBroadException
     try:
         out_bytes = []
@@ -115,7 +114,7 @@ class String(CompileTimeConstant):
         elif token.type == "MULTISTRING":
             value = parse_multistring(token)
         else:
-            raise InternalCompilerError(f"illegal token for string: {token}")
+            raise InternalCompilerError(f"illegal token type '{token.type}' for string: {token}")
 
         return String(value, meta)
 

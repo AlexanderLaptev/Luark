@@ -3,12 +3,13 @@ import pkgutil
 import sys
 from os import PathLike
 
-from lark import Lark, UnexpectedInput
+from lark import Lark, Token, Tree, UnexpectedInput, UnexpectedToken
+from lark.exceptions import VisitError
 
 from luark.compiler.ast.chunk import Chunk
 from luark.compiler.ast.transformer import LuarkTransformer
 from luark.compiler.compiler_state import CompilerState
-from luark.compiler.exceptions import CompilationError
+from luark.compiler.exceptions import CompilationError, InternalCompilerError
 from luark.program import Program
 
 
@@ -34,21 +35,35 @@ class Compiler:
             file_name: str = "<input>"
     ) -> Program:
         try:
-            tree = self._lark.parse(
-                source,
-                start="start",
-            )
-        except UnexpectedInput as e:  # TODO: enhance error handling
-            self._log_error(e, source, file_name)
-            raise CompilationError(e)
+            tree = self._lark.parse(source, start="start")
+        except UnexpectedToken as e:
+            raise CompilationError(f"{file_name}:{e.line}: unexpected token {e.token.type}")
+        except UnexpectedInput as e:
+            raise CompilationError(f"{file_name}:{e.line}: syntax error at column {e.column}")
 
         if self.debug:
             print(tree.pretty())
 
-        chunk: Chunk = self._transformer.transform(tree)
-        state = CompilerState()
-        program = chunk.compile(state)
-        return program
+        try:
+            chunk: Chunk = self._transformer.transform(tree)
+            state = CompilerState()
+            program = chunk.compile(state)
+            return program
+        except (CompilationError, InternalCompilerError):
+            raise
+        except VisitError as e:
+            if isinstance(e.orig_exc, CompilationError):
+                line: str = "?"
+                if isinstance(e.obj, Tree):
+                    line = str(e.obj.meta.line)
+                elif isinstance(e.obj, Token):
+                    line = str(e.obj.line)
+
+                raise CompilationError(f"{file_name}:{line}:", e.orig_exc)
+            else:
+                raise InternalCompilerError(e.orig_exc)
+        except Exception as e:
+            raise InternalCompilerError(e)
 
     def compile_file(
             self,
@@ -70,17 +85,4 @@ class Compiler:
             grammar,
             **Compiler._LARK_PARAMS,
             debug=self.debug,
-        )
-
-    def _log_error(
-            self,
-            error: UnexpectedInput,
-            source: str,
-            file_name: str
-    ) -> None:
-        index = error.column - 1
-        context = source[index:index + 5].strip() + "..."
-        print(
-            f"{file_name}:{error.line}: syntax error at column {error.column} near '{context}'",
-            file=sys.stderr
         )
