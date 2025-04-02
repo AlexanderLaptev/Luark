@@ -11,7 +11,7 @@ from luark.opcode.upvalue import LoadUpvalue, StoreUpvalue
 if typing.TYPE_CHECKING:
     from luark.compiler.ast.expressions import CompileTimeConstant
 
-_ConstType: TypeAlias = int | float | bytes
+_ConstType: TypeAlias = int | float | bytes  # all the types that can be put in the constant pool
 
 
 @dataclass
@@ -23,7 +23,7 @@ class LocalVariable:
     is_const: bool = False
 
 
-class _LocalVariableStore:
+class LocalVariableStore:
     def __init__(self):
         self._locals: list[LocalVariable] = []
         self._lookup: dict[str, LocalVariable] = {}
@@ -47,7 +47,7 @@ class _LocalVariableStore:
 
 class _BlockState:
     def __init__(self):
-        self.locals = _LocalVariableStore()
+        self.locals = LocalVariableStore()
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
 
@@ -129,6 +129,9 @@ class CompilerState:
         self._current_proto.program_counter += 1
 
     def get_const_index(self, value: _ConstType) -> int:
+        if not isinstance(value, _ConstType):
+            raise InternalCompilerError(f"cannot put {value} of type {type(value)} into the constant pool")
+
         if value in self._consts:
             return self._consts[value]
         else:

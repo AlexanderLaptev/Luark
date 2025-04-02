@@ -1,6 +1,5 @@
 import os.path
 import pkgutil
-import sys
 from os import PathLike
 
 from lark import Lark, Token, Tree, UnexpectedInput, UnexpectedToken
