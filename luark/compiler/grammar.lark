@@ -25,12 +25,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
 ?and_expression: comparison_expression
     | and_expression "and" comparison_expression
 ?!comparison_expression: bitwise_or_expression
-    | comparison_expression "<" bitwise_or_expression -> comparison_lt
-    | comparison_expression ">" bitwise_or_expression -> comparison_gt
-    | comparison_expression "<=" bitwise_or_expression -> comparison_le
-    | comparison_expression ">=" bitwise_or_expression -> comparison_ge
-    | comparison_expression "==" bitwise_or_expression -> comparison_eq
-    | comparison_expression "~=" bitwise_or_expression -> comparison_neq
+    | comparison_expression ("<" | ">" | "<=" | ">=" | "==" | "!=") bitwise_or_expression
 ?bitwise_or_expression: bitwise_xor_expression
     | bitwise_or_expression "|" bitwise_xor_expression
 ?bitwise_xor_expression: bitwise_and_expression
@@ -42,14 +37,10 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | bitwise_shift_expression ">>" concat_expression -> rshift_expression
 ?concat_expression: add_expression
     | add_expression ".." concat_expression
-?add_expression: mul_expression
-    | add_expression "+" mul_expression -> add_expression
-    | add_expression "-" mul_expression -> sub_expression
-?mul_expression: unary_expression
-    | mul_expression "*" unary_expression -> mul_expression
-    | mul_expression "/" unary_expression -> div_expression
-    | mul_expression "//" unary_expression -> fdiv_expression
-    | mul_expression "%" unary_expression -> mod_expression
+?!add_expression: mul_expression
+    | add_expression ("+" | "-") mul_expression
+?!mul_expression: unary_expression
+    | mul_expression ("*" | "/" | "//" | "%") unary_expression
 ?unary_expression: exp_expression
     | "-" unary_expression -> unary_minus
     | "not" unary_expression -> unary_not

@@ -1,11 +1,15 @@
-from lark import Discard, Token, Transformer, v_args
+from lark import Discard, Token, v_args
 from lark.tree import Meta
 
 from luark.compiler.ast import Block, Chunk
 from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.break_statement import BreakStatement
+from luark.compiler.ast.constant_folder import ConstantFoldingTransformer
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
-from luark.compiler.ast.expressions import Expression, ExpressionList
+from luark.compiler.ast.expressions import (
+    Expression,
+    ExpressionList
+)
 from luark.compiler.ast.for_loops import GenericForLoop, NumericForLoop
 from luark.compiler.ast.function_calls import (
     FunctionCall,
@@ -39,7 +43,7 @@ from luark.compiler.exceptions import InternalCompilerError
 
 # noinspection PyPep8Naming
 @v_args(inline=True)
-class LuarkTransformer(Transformer):
+class LuarkTransformer(ConstantFoldingTransformer):
     def start(self, chunk: Chunk):
         return chunk
 
@@ -72,90 +76,11 @@ class LuarkTransformer(Transformer):
     def table_constructor(self, fields: list[Field]) -> TableConstructor:
         return TableConstructor(fields)
 
-    def expression_field(
-            self,
-            key: Expression,
-            value: Expression
-    ) -> ExpressionField:
+    def expression_field(self, key: Expression, value: Expression) -> ExpressionField:
         return ExpressionField(key, value)
 
     def name_field(self, name: str, value: Expression) -> NameField:
         return NameField(name, value)
-
-    def or_expression(self, _):
-        pass
-
-    def and_expression(self, _):
-        pass
-
-    def comparison_lt(self, _):
-        pass
-
-    def comparison_gt(self, _):
-        pass
-
-    def comparison_le(self, _):
-        pass
-
-    def comparison_ge(self, _):
-        pass
-
-    def comparison_eq(self, _):
-        pass
-
-    def comparison_neq(self, _):
-        pass
-
-    def bitwise_or_expression(self, _):
-        pass
-
-    def bitwise_xor_expression(self, _):
-        pass
-
-    def bitwise_and_expression(self, _):
-        pass
-
-    def lshift_expression(self, _):
-        pass
-
-    def rshift_expression(self, _):
-        pass
-
-    def concat_expression(self, _):
-        pass
-
-    def add_expression(self, _):
-        pass
-
-    def sub_expression(self, _):
-        pass
-
-    def mul_expression(self, _):
-        pass
-
-    def div_expression(self, _):
-        pass
-
-    def fdiv_expression(self, _):
-        pass
-
-    def mod_expression(self, _):
-        pass
-
-    def exp_expression(self, _):
-        pass
-
-    def unary_minus(self, _):
-        pass
-
-    def unary_not(self, _):
-        pass
-
-    def unary_length(self, _):
-        pass
-
-    def unary_bitwise_not(self, _):
-        pass
 
     def true(self, _) -> TrueValue:
         return TrueValue.INSTANCE
@@ -340,9 +265,7 @@ class LuarkTransformer(Transformer):
             step = children[3]
             body = children[4]
         else:
-            raise InternalCompilerError(
-                "Invalid number of children for numeric for loop."
-            )
+            raise InternalCompilerError(f"invalid children ({len(children)}) for numeric for loop")
 
         return NumericForLoop(meta, control, initial, limit, step, body)
 
