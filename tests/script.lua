@@ -1,1 +1,3 @@
-a = "\x00\x01\x02\x03\x04\x05"
+a = "   fsadf\z   whitespace\z
+new line\
+escaped new line"
