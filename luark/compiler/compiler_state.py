@@ -39,7 +39,6 @@ class _PrototypeState:
         self.block_stack: list[_BlockState] = []
         self.locals = LocalVariableStore()
         self.program_counter = 0  # always points after the last opcode
-        self.num_locals = 0  # TODO: remove in favor of LocalVariableStore
 
 
 class CompilerState:
@@ -125,8 +124,7 @@ class CompilerState:
         if reuse and self._released_local_indices:
             return self._released_local_indices.pop()
         else:
-            index = self._current_proto.num_locals
-            self._current_proto.num_locals += 1
+            index = len(self._current_proto.locals)
             return index
 
     def add_const_local(self, name: str, expression: CompileTimeConstant):
@@ -172,7 +170,6 @@ class CompilerState:
             proto = Prototype()
             proto.opcodes = proto_state.opcodes
             proto.constant_pool = list(proto_state.consts)
-            proto.num_locals = proto_state.num_locals
             proto.locals = proto_state.locals
             protos.append(proto)
 
