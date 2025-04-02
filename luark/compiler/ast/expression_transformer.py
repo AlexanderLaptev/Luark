@@ -8,8 +8,10 @@ from luark.compiler.ast.number import Number
 from luark.opcode.binary import BinaryOperation
 
 
+# TODO: lazy evaluation
+
 @v_args(inline=True)
-class ConstantFoldingTransformer(Transformer):
+class ExpressionTransformer(Transformer):
     _COMPARISON_LOOKUP = {
         "<": (BinaryOperation.LESS_THAN, lambda x, y: x < y),
         ">": (BinaryOperation.GREATER_THAN, lambda x, y: x > y),

@@ -4,7 +4,7 @@ from lark.tree import Meta
 from luark.compiler.ast import Block, Chunk
 from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.break_statement import BreakStatement
-from luark.compiler.ast.constant_folder import ConstantFoldingTransformer
+from luark.compiler.ast.expression_transformer import ExpressionTransformer
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
 from luark.compiler.ast.expressions import (
     Expression,
@@ -43,7 +43,7 @@ from luark.compiler.exceptions import InternalCompilerError
 
 # noinspection PyPep8Naming
 @v_args(inline=True)
-class LuarkTransformer(ConstantFoldingTransformer):
+class LuarkTransformer(ExpressionTransformer):
     def start(self, chunk: Chunk):
         return chunk
 
