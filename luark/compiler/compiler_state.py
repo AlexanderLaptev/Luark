@@ -35,9 +35,11 @@ class _PrototypeState:
 
         self.consts: dict[int | float | bytes, int] = {}
         self.opcodes: list[Opcode] = []
+        self.blocks: list[_BlockState] = []
         self.block_stack: list[_BlockState] = []
+        self.locals = LocalVariableStore()
         self.program_counter = 0  # always points after the last opcode
-        self.num_locals = 0
+        self.num_locals = 0  # TODO: remove in favor of LocalVariableStore
 
 
 class CompilerState:
@@ -73,6 +75,7 @@ class CompilerState:
     def begin_block(self) -> None:
         block_state = _BlockState()
         self._current_proto.block_stack.append(block_state)
+        self._current_proto.blocks.append(block_state)
         self._current_block = block_state
 
     def end_block(self) -> None:
@@ -80,6 +83,8 @@ class CompilerState:
         # and are therefore no longer visible
         for local in self._current_block.locals:
             local.end = self.program_counter
+
+        self._current_proto.locals.merge(self._current_block.locals)
 
         self._current_proto.block_stack.pop()
         if self._current_proto.block_stack:
@@ -168,6 +173,7 @@ class CompilerState:
             proto.opcodes = proto_state.opcodes
             proto.constant_pool = list(proto_state.consts)
             proto.num_locals = proto_state.num_locals
+            proto.locals = proto_state.locals
             protos.append(proto)
 
         program = Program()

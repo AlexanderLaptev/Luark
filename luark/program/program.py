@@ -37,6 +37,13 @@ class LocalVariableStore:
     def by_name(self, name: str) -> LocalVariable:
         return self._lookup[name]
 
+    def merge(self, other: LocalVariableStore):
+        for local in other:
+            self.add(local)
+
+    def __len__(self):
+        return len(self._locals)
+
     def __iter__(self):
         return iter(self._locals)
 
@@ -44,6 +51,7 @@ class LocalVariableStore:
 class Prototype:
     opcodes: list[Opcode]
     constant_pool: list[ConstantPoolType]
+    locals: LocalVariableStore
     num_locals: int
 
 
