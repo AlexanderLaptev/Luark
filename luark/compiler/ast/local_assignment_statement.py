@@ -29,7 +29,7 @@ class LocalAssignmentStatement(Statement):
         runtime_consts: list[int] = []
         compile_time_consts: list[int] = []
 
-        # Process attributes.
+        # Process attributes
         for i in range(len(self.attributed_names)):
             attribute = self.attributed_names[i].attribute
             match attribute:
@@ -52,9 +52,9 @@ class LocalAssignmentStatement(Statement):
                 case _:  # something else (illegal)
                     raise CompilationError(f"unknown attribute: <{attribute}>")
 
-        # Handle compile time consts.
+        # Handle compile time consts
         for i in compile_time_consts:
-            # Use the provided value if it exists, or use nil otherwise.
+            # Use the provided value if it exists, or use nil otherwise
             expression: CompileTimeConstant
             if i < len(expressions):
                 expression = expressions[i]
@@ -66,7 +66,7 @@ class LocalAssignmentStatement(Statement):
             if i < len(expressions):  # mark expression for exclusion later
                 expressions[i] = None
 
-        # Filter out compile time consts from the expression list.
+        # Filter out compile time consts from the expression list
         expressions = [x for x in expressions if (x is not None)]
         ExpressionList(expressions).evaluate(state, len(variables))
 

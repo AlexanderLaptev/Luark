@@ -18,12 +18,36 @@ _ConstType: TypeAlias = int | float | bytes
 class LocalVariable:
     name: str
     index: int
+    start: int
+    end: int | None = None
     is_const: bool = False
+
+
+class _LocalVariableStore:
+    def __init__(self):
+        self._locals: list[LocalVariable] = []
+        self._lookup: dict[str, LocalVariable] = {}
+
+    def add(self, local: LocalVariable):
+        self._locals.append(local)
+        self._lookup[local.name] = local
+
+    def by_index(self, index: int) -> LocalVariable:
+        for local in self._locals:
+            if local.index == index:
+                return local
+        raise InternalCompilerError(f"local variable with index {index} not found")
+
+    def by_name(self, name: str) -> LocalVariable:
+        return self._lookup[name]
+
+    def __iter__(self):
+        return iter(self._locals)
 
 
 class _BlockState:
     def __init__(self):
-        self.locals: dict[str, LocalVariable] = {}
+        self.locals = _LocalVariableStore()
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
 
@@ -43,6 +67,7 @@ class _PrototypeState:
 
         self.opcodes: list[Opcode] = []
         self.block_stack: list[_BlockState] = []
+        self.program_counter = 0  # always points after the last opcode
 
 
 class CompilerState:
@@ -73,12 +98,21 @@ class CompilerState:
     def end_proto(self) -> None:
         self._current_proto = self._stack.pop()
 
+    @property
+    def program_counter(self) -> int:
+        return self._current_proto.program_counter
+
     def begin_block(self) -> None:
         block_state = _BlockState()
         self._current_proto.block_stack.append(block_state)
         self._current_block = block_state
 
     def end_block(self) -> None:
+        # When a block exits, all of its locals leave the lexical scope
+        # and are therefore no longer visible
+        for local in self._current_block.locals:
+            local.end = self.program_counter
+
         self._current_proto.block_stack.pop()
         if self._current_proto.block_stack:
             self._current_block = self._current_proto.block_stack[-1]
@@ -92,6 +126,7 @@ class CompilerState:
 
     def add_opcode(self, opcode: Opcode) -> None:
         self._current_proto.opcodes.append(opcode)
+        self._current_proto.program_counter += 1
 
     def get_const_index(self, value: _ConstType) -> int:
         if value in self._consts:
@@ -103,12 +138,12 @@ class CompilerState:
 
     def new_local(self, name: str) -> LocalVariable:
         index = self._next_local_index()
-        local = LocalVariable(name, index)
-        self._current_block.locals[name] = local
+        local = LocalVariable(name, index, self.program_counter)
+        self._current_block.locals.add(local)
         return local
 
     def get_local(self, name: str) -> LocalVariable:
-        return self._current_block.locals[name]
+        return self._current_block.locals.by_name(name)
 
     def _next_local_index(self, reuse: bool = True) -> int:
         if reuse and self._released_local_indices:
@@ -145,12 +180,12 @@ class CompilerState:
                         elif operation == "write":
                             self.add_opcode(StoreUpvalue(index))
                     else:
-                        var = self.get_local(name)
-                        index = var.index
+                        local = self.get_local(name)
+                        index = local.index
                         if operation == "read":
                             self.add_opcode(LoadLocal(index))
                         elif operation == "write":
-                            if var.is_const:
+                            if local.is_const:
                                 raise CompilationError(f"cannot reassign constant '{name}'")
                             self.add_opcode(StoreLocal(index))
                     return
