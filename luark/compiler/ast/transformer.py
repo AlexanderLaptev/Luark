@@ -59,7 +59,7 @@ class LuarkTransformer(ExpressionTransformer):
 
     @v_args(meta=True, inline=True)
     def string(self, meta: Meta, token: Token):
-        return String(meta, token)
+        return String.of_token(token, meta)
 
     def varargs(self, _):
         return Varargs()

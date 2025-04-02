@@ -5,6 +5,7 @@ from lark import Token, Transformer, v_args
 from luark.compiler.ast.constants import FalseValue, TrueValue
 from luark.compiler.ast.expressions import BinaryExpression, Expression
 from luark.compiler.ast.number import Number
+from luark.compiler.ast.string import String
 from luark.opcode.binary import BinaryOperation
 
 
@@ -76,3 +77,9 @@ class ExpressionTransformer(Transformer):
             result = calculator(left.value, right.value)
             return Number(result)
         return BinaryExpression(left, right, operation)
+
+    def concat_expression(self, left: Expression, right: Expression) -> Expression:
+        if isinstance(left, String) and isinstance(right, String):
+            return String(left.value + right.value)
+        else:
+            return BinaryExpression(left, right, BinaryOperation.CONCATENATE)

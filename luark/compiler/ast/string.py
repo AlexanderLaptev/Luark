@@ -22,7 +22,7 @@ ESCAPE_SEQUENCES = {
 }
 
 
-def parse_string(meta: Meta, source: str) -> bytes:
+def parse_string(source: str) -> bytes:
     string = source[1:-1]  # strip quotes
 
     lines = string.split("\\z")
@@ -30,6 +30,7 @@ def parse_string(meta: Meta, source: str) -> bytes:
         lines[i] = lines[i].lstrip()
     string = "".join(lines)
 
+    # TODO: refine exception handling
     # noinspection PyBroadException
     try:
         out_bytes = []
@@ -85,16 +86,12 @@ def parse_string(meta: Meta, source: str) -> bytes:
                         if not 0 <= value <= 255:
                             raise CompilationError
 
-                        out_bytes.append(
-                            value.to_bytes(1, byteorder="big", signed=False)
-                        )
+                        out_bytes.append(value.to_bytes(1, byteorder="big", signed=False))
             else:
                 out_bytes.append(c.encode("utf-8"))
                 i += 1
     except Exception:
-        raise CompilationError(
-            f"Illegal string literal (line {meta.line}): '{string}'."
-        )
+        raise CompilationError(f"malformed string literal: {string}")
 
     return b"".join(out_bytes)
 
@@ -106,20 +103,24 @@ def parse_multistring(source: str) -> bytes:
 
 @dataclass
 class String(CompileTimeConstant):
-    meta: Meta
     value: bytes
+    meta: Meta | None = None
 
-    def __init__(self, meta: Meta, token: Token):
-        self.meta = meta
+    @staticmethod
+    def of_token(token: Token, meta: Meta):
+        value: bytes
         if token.type == "STRING":
-            self.value = parse_string(meta, token)
+            value = parse_string(token)
         elif token.type == "MULTISTRING":
-            self.value = parse_multistring(token)
+            value = parse_multistring(token)
         else:
-            raise InternalCompilerError(
-                f"Illegal string literal token: {token.type}."
-            )
+            raise InternalCompilerError(f"illegal token for string: {token}")
+
+        return String(value, meta)
+
+    @staticmethod
+    def of_literal(literal: str):
+        return String(literal.encode("utf-8"))
 
     def evaluate(self, state: CompilerState) -> None:
-        pass
-        # index = state.get_const_index(self.value)
+        raise NotImplementedError
