@@ -1,3 +1,3 @@
-a = "fsdafasd\
+local a = "fsdafasd\
 \
 "

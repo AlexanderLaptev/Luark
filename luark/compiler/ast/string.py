@@ -6,6 +6,7 @@ from lark.tree import Meta
 from luark.compiler.ast.expressions import CompileTimeConstant
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
+from luark.opcode.push import PushConst
 
 ESCAPE_SEQUENCES = {
     "a": b"\a",
@@ -123,4 +124,5 @@ class String(CompileTimeConstant):
         return String(literal.encode("utf-8"))
 
     def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        index = state.get_const_index(self.value)
+        state.add_opcode(PushConst(index))

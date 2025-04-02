@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Literal
@@ -34,7 +35,8 @@ class UnaryExpression(Expression):
     opcode: Opcode
 
     def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        self.operand.evaluate(state)
+        state.add_opcode(self.opcode)
 
 
 @dataclass
@@ -44,7 +46,9 @@ class BinaryExpression(Expression):
     opcode: Opcode
 
     def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        self.left.evaluate(state)
+        self.right.evaluate(state)
+        state.add_opcode(self.opcode)
 
 
 @dataclass
@@ -52,4 +56,8 @@ class ExpressionList:
     expressions: list[Expression] = field(default_factory=list)
 
     def evaluate(self, state: CompilerState, adjust_to: int = None) -> None:
-        raise NotImplementedError
+        if adjust_to:  # TODO
+            warnings.warn("expression list adjustments are not yet supported")
+
+        for expression in self.expressions:
+            expression.evaluate(state)

@@ -4,5 +4,10 @@ from luark.opcode import Opcode
 
 
 @dataclass
-class PushConst(Opcode):
+class LoadUpvalue(Opcode):
+    index: int
+
+
+@dataclass
+class StoreUpvalue(Opcode):
     index: int

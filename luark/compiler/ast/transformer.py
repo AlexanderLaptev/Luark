@@ -4,8 +4,8 @@ from lark.tree import Meta
 from luark.compiler.ast import Block, Chunk
 from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.break_statement import BreakStatement
-from luark.compiler.ast.expression_transformer import ExpressionTransformer
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
+from luark.compiler.ast.expression_transformer import ExpressionTransformer
 from luark.compiler.ast.expressions import (
     Expression,
     ExpressionList
@@ -145,7 +145,7 @@ class LuarkTransformer(ExpressionTransformer):
     ):
         return AssignmentStatement(meta, var_list, expression_list)
 
-    @v_args(meta=True)
+    @v_args(meta=True, inline=True)
     def local_assignment_statement(
             self,
             meta: Meta,
