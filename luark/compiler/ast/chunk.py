@@ -17,3 +17,4 @@ class Chunk:
     def compile(self, state: CompilerState):
         # We compile the chunk as a variadic function with the same body.
         self.func_def.evaluate(state)
+        return state.compile()

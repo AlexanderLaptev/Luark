@@ -6,5 +6,6 @@ from luark.compiler.exceptions import CompilationError
 compiler = Compiler(debug=True)
 try:
     program = compiler.compile_file("./script.lua")
+    pass
 except CompilationError as e:
     print(*e.args, file=sys.stderr)

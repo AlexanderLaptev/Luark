@@ -1,48 +1,16 @@
 from __future__ import annotations
 
 import typing
-from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
 from luark.opcode.local import LoadLocal, StoreLocal
 from luark.opcode.upvalue import LoadUpvalue, StoreUpvalue
+from luark.program import Prototype
+from luark.program.program import ConstantPoolType, LocalVariable, LocalVariableStore, Program
 
 if typing.TYPE_CHECKING:
     from luark.compiler.ast.expressions import CompileTimeConstant
-
-_ConstType: TypeAlias = int | float | bytes  # all the types that can be put in the constant pool
-
-
-@dataclass
-class LocalVariable:
-    name: str
-    index: int
-    start: int
-    end: int | None = None
-    is_const: bool = False
-
-
-class LocalVariableStore:
-    def __init__(self):
-        self._locals: list[LocalVariable] = []
-        self._lookup: dict[str, LocalVariable] = {}
-
-    def add(self, local: LocalVariable):
-        self._locals.append(local)
-        self._lookup[local.name] = local
-
-    def by_index(self, index: int) -> LocalVariable:
-        for local in self._locals:
-            if local.index == index:
-                return local
-        raise InternalCompilerError(f"local variable with index {index} not found")
-
-    def by_name(self, name: str) -> LocalVariable:
-        return self._lookup[name]
-
-    def __iter__(self):
-        return iter(self._locals)
 
 
 class _BlockState:
@@ -65,19 +33,19 @@ class _PrototypeState:
         self.fixed_param_count = fixed_param_count
         self.is_variadic = is_variadic
 
+        self.consts: dict[int | float | bytes, int] = {}
         self.opcodes: list[Opcode] = []
         self.block_stack: list[_BlockState] = []
         self.program_counter = 0  # always points after the last opcode
+        self.num_locals = 0
 
 
 class CompilerState:
     from luark.opcode import Opcode
 
     def __init__(self):
-        self._consts: dict[int | float | bytes, int] = {}
         self._released_local_indices: set[int] = set()
         self._num_lambdas = 0
-        self._num_locals = 0
 
         self._protos: list[_PrototypeState] = []
         self._stack: list[_PrototypeState] = []
@@ -128,15 +96,15 @@ class CompilerState:
         self._current_proto.opcodes.append(opcode)
         self._current_proto.program_counter += 1
 
-    def get_const_index(self, value: _ConstType) -> int:
-        if not isinstance(value, _ConstType):
+    def get_const_index(self, value: ConstantPoolType) -> int:
+        if not isinstance(value, ConstantPoolType):
             raise InternalCompilerError(f"cannot put {value} of type {type(value)} into the constant pool")
 
-        if value in self._consts:
-            return self._consts[value]
+        if value in self._current_proto.consts:
+            return self._current_proto.consts[value]
         else:
-            index = len(self._consts)
-            self._consts[value] = index
+            index = len(self._current_proto.consts)
+            self._current_proto.consts[value] = index
             return index
 
     def new_local(self, name: str) -> LocalVariable:
@@ -152,8 +120,8 @@ class CompilerState:
         if reuse and self._released_local_indices:
             return self._released_local_indices.pop()
         else:
-            index = self._num_locals
-            self._num_locals += 1
+            index = self._current_proto.num_locals
+            self._current_proto.num_locals += 1
             return index
 
     def add_const_local(self, name: str, expression: CompileTimeConstant):
@@ -192,3 +160,17 @@ class CompilerState:
                                 raise CompilationError(f"cannot reassign constant '{name}'")
                             self.add_opcode(StoreLocal(index))
                     return
+
+    def compile(self) -> Program:
+        protos: list[Prototype] = []
+        for proto_state in self._protos:
+            proto = Prototype()
+            proto.opcodes = proto_state.opcodes
+            proto.constant_pool = list(proto_state.consts)
+            proto.num_locals = proto_state.num_locals
+            protos.append(proto)
+
+        program = Program()
+        program.prototypes = protos
+
+        return program
