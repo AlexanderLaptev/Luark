@@ -50,7 +50,7 @@ class FunctionDefinition(Expression):
         param_count: int = len(params.names)
         is_variadic: bool = params.has_varargs
 
-        index: int = state.begin_proto(name, param_count, is_variadic)
+        state.begin_proto(name, param_count, is_variadic)
         state.begin_block()
         for statement in self.body.block.statements:
             statement.compile(state)

@@ -1,6 +1,27 @@
+from dataclasses import dataclass
+from enum import Enum, auto
 from typing import TypeAlias
 
+from luark.compiler.exceptions import InternalCompilerError
+
 ConstType: TypeAlias = int | float | bytes
+
+
+@dataclass
+class _LocalVariable:
+    class Type(Enum):
+        REGULAR = auto()
+        RUNTIME_CONST = auto()
+        COMPILE_CONST = auto()
+        TO_BE_CLOSED = auto()
+
+    name: str
+    type: Type
+
+
+class _BlockState:
+    def __init__(self):
+        self.locals: list[_LocalVariable] = []
 
 
 class _PrototypeState:
@@ -17,13 +38,13 @@ class _PrototypeState:
         self.is_variadic = is_variadic
 
         self.opcodes: list[Opcode] = []
+        self.block_stack: list[_BlockState] = []
 
 
 class CompilerState:
     from luark.opcode import Opcode
 
     def __init__(self):
-        self._is_compiling: bool = False
         self._consts: dict[ConstType, int] = {}
 
         self._protos: list[_PrototypeState] = []
@@ -37,24 +58,21 @@ class CompilerState:
             function_name: str,
             fixed_param_count: int,
             is_variadic: bool,
-    ) -> int:
+    ) -> None:
         proto = _PrototypeState(function_name, fixed_param_count, is_variadic)
-        index = len(self._stack)
-
         self._protos.append(proto)
         self._stack.append(proto)
         self._current_proto = proto
-
-        return index
 
     def end_proto(self) -> None:
         self._current_proto = self._stack.pop()
 
     def begin_block(self) -> None:
-        pass
+        block_state = _BlockState()
+        self._current_proto.block_stack.append(block_state)
 
     def end_block(self) -> None:
-        pass
+        self._current_proto.block_stack.pop()
 
     def next_lambda_index(self) -> int:
         result = self._num_lambdas
@@ -62,7 +80,7 @@ class CompilerState:
         return result
 
     def add_opcode(self, opcode: Opcode) -> None:
-        pass
+        raise NotImplementedError
 
     def get_const_index(self, value: ConstType) -> int:
         if value in self._consts:
@@ -76,4 +94,4 @@ class CompilerState:
         for k, v in self._consts.items():
             if v == index:
                 return k
-        raise IndexError
+        raise InternalCompilerError(f"unable to find constant {index}")
