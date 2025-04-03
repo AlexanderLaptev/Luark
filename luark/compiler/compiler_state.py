@@ -168,6 +168,9 @@ class CompilerState:
         protos: list[Prototype] = []
         for proto_state in self._protos:
             proto = Prototype()
+            proto.function_name = proto_state.func_name
+            proto.fixed_param_count = proto_state.fixed_param_count
+            proto.is_variadic = proto_state.is_variadic
             proto.opcodes = proto_state.opcodes
             proto.constant_pool = list(proto_state.consts)
             proto.locals = proto_state.locals

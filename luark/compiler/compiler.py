@@ -1,6 +1,7 @@
 import os.path
 import pkgutil
 from os import PathLike
+from typing import Literal
 
 from lark import Lark, Token, Tree, UnexpectedInput, UnexpectedToken
 from lark.exceptions import VisitError
@@ -23,8 +24,17 @@ class Compiler:
     _lark: Lark = None
     _transformer: LuarkTransformer
 
-    def __init__(self, debug: bool = False):
-        self.debug = debug
+    def __init__(self, debug: Literal["tree", "code", "all", "none"] = "none"):
+        self.debug_tree = False
+        self.debug_code = False
+        match debug:
+            case "tree":
+                self.debug_tree = True
+            case "code":
+                self.debug_code = True
+            case "all":
+                self.debug_tree = True
+                self.debug_code = True
         if self._lark is None:
             self._init_lark()
 
@@ -40,13 +50,15 @@ class Compiler:
         except UnexpectedInput as e:
             raise CompilationError(f"{file_name}:{e.line}: syntax error at column {e.column}")
 
-        if self.debug:
+        if self.debug_tree:
             print(tree.pretty())
 
         try:
             chunk: Chunk = self._transformer.transform(tree)
             state = CompilerState()
             program = chunk.compile(state)
+            if self.debug_code:
+                print(program)
             return program
         except (CompilationError, InternalCompilerError):
             raise
@@ -83,5 +95,5 @@ class Compiler:
         self._lark = Lark(
             grammar,
             **Compiler._LARK_PARAMS,
-            debug=self.debug,
+            debug=self.debug_tree,
         )

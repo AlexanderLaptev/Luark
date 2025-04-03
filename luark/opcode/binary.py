@@ -30,7 +30,12 @@ class BinaryOperation(Opcode):
     BITWISE_RIGHT_SHIFT: Self
 
     def __init__(self, operation: int):
+        super().__init__("binop")
         self.operation: int = operation
+
+    @property
+    def arg_str(self) -> str:
+        return f"{self.operation}"
 
 
 BinaryOperation.CONCATENATE = BinaryOperation(0)
