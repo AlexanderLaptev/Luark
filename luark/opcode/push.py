@@ -23,9 +23,10 @@ class PushConst(Opcode):
 
 
 class PushTrue(Opcode):
-    INSTANCE: Self
+    INSTANCE: Self = None
 
     def __init__(self):
+        assert PushTrue.INSTANCE is None
         super().__init__("push_true")
 
 
@@ -33,9 +34,10 @@ PushTrue.INSTANCE = PushTrue()
 
 
 class PushFalse(Opcode):
-    INSTANCE: Self
+    INSTANCE: Self = None
 
     def __init__(self):
+        assert PushFalse.INSTANCE is None
         super().__init__("push_false")
 
 
@@ -43,9 +45,10 @@ PushFalse.INSTANCE = PushFalse()
 
 
 class PushNil(Opcode):
-    INSTANCE: Self
+    INSTANCE: Self = None
 
     def __init__(self):
+        assert PushNil.INSTANCE is None
         super().__init__("push_nil")
 
 

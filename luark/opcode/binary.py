@@ -29,7 +29,10 @@ class BinaryOperation(Opcode):
     BITWISE_LEFT_SHIFT: Self
     BITWISE_RIGHT_SHIFT: Self
 
+    _frozen: bool = False
+
     def __init__(self, operation: int):
+        assert not BinaryOperation._frozen
         super().__init__("binop")
         self.operation: int = operation
 
@@ -62,3 +65,5 @@ BinaryOperation.BITWISE_XOR = BinaryOperation(17)
 BinaryOperation.BITWISE_AND = BinaryOperation(18)
 BinaryOperation.BITWISE_LEFT_SHIFT = BinaryOperation(19)
 BinaryOperation.BITWISE_RIGHT_SHIFT = BinaryOperation(20)
+
+BinaryOperation._frozen = True

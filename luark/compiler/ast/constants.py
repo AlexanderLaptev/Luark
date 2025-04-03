@@ -2,14 +2,14 @@ from typing import Self
 
 from luark.compiler.ast.expressions import CompileTimeConstant
 from luark.compiler.compiler_state import CompilerState
-from luark.opcode.push import PushFalse
+from luark.opcode.push import PushFalse, PushNil, PushTrue
 
 
 class TrueValue(CompileTimeConstant):
-    INSTANCE: Self
+    INSTANCE: Self = None
 
     def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        state.add_opcode(PushTrue.INSTANCE)
 
 
 # noinspection PyTypeChecker
@@ -20,7 +20,7 @@ class FalseValue(CompileTimeConstant):
     INSTANCE: Self
 
     def evaluate(self, state: CompilerState) -> None:
-        state.add_opcode(PushFalse())
+        state.add_opcode(PushFalse.INSTANCE)
 
 
 # noinspection PyTypeChecker
@@ -31,7 +31,7 @@ class NilValue(CompileTimeConstant):
     INSTANCE: Self
 
     def evaluate(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        state.add_opcode(PushNil.INSTANCE)
 
 
 # noinspection PyTypeChecker
