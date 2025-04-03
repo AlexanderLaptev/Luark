@@ -37,7 +37,7 @@ class LocalAssignmentStatement(Statement):
                     variables.append(i)
                     if attribute == "close":  # TBC variable
                         if tbc_index is not None:
-                            raise CompilationError("local var list already contains a to-be-closed variable")
+                            raise CompilationError("local var list already contains a to-be-closed variable", self.meta)
                         tbc_index = i
                 case "const":  # compile or runtime const
                     if i < len(expressions):  # if there's an expression given for this name
@@ -50,7 +50,7 @@ class LocalAssignmentStatement(Statement):
                     else:
                         compile_time_consts.append(i)
                 case _:  # something else (illegal)
-                    raise CompilationError(f"unknown attribute: <{attribute}>")
+                    raise CompilationError(f"unknown attribute: <{attribute}>", self.meta)
 
         # Handle compile time consts
         for i in compile_time_consts:

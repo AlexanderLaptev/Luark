@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import typing
-from abc import ABC, abstractmethod
 
 if typing.TYPE_CHECKING:
     from luark.program import Program, Prototype
 
 
-class Opcode(ABC):
+class Opcode:
     name: str
 
     def __init__(self, name: str):

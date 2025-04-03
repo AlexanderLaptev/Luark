@@ -27,6 +27,13 @@ def _tabulate(data):
     return tabulate.tabulate(data, headers="firstrow", tablefmt="plain", disable_numparse=True)
 
 
+@dataclass(frozen=True)
+class Upvalue:
+    index: int
+    name: str
+    is_on_stack: bool
+
+
 @dataclass
 class LocalVariable:
     name: str
@@ -73,6 +80,7 @@ class Prototype:
     opcodes: list[Opcode]
     constant_pool: list[ConstantPoolType]
     locals: LocalVariableStore
+    upvalues: list[Upvalue]
     num_locals: int
 
 
@@ -132,6 +140,14 @@ class Program:
         table = [["index", "name", "start", "end"]]
         for i, local in enumerate(proto.locals):
             row = [i, local.name, local.start, local.end]
+            table.append(row)
+        output.append(_indent_lines(_tabulate(table)))
+        output.append("")
+
+        output.append(f"upvalues({len(proto.upvalues)}):")
+        table = [["index", "name", "local?"]]
+        for i, upvalue in enumerate(proto.upvalues):
+            row = [i, upvalue.name, str(upvalue.is_on_stack).lower()]
             table.append(row)
         output.append(_indent_lines(_tabulate(table)))
 

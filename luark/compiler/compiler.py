@@ -5,6 +5,7 @@ from typing import Literal
 
 from lark import Lark, Token, Tree, UnexpectedInput, UnexpectedToken
 from lark.exceptions import VisitError
+from lark.tree import Meta
 
 from luark.compiler.ast.chunk import Chunk
 from luark.compiler.ast.transformer import LuarkTransformer
@@ -60,7 +61,11 @@ class Compiler:
             if self.debug_code:
                 print(program)
             return program
-        except (CompilationError, InternalCompilerError):
+        except CompilationError as e:
+            if e.args and isinstance(e.args[-1], Meta):
+                meta: Meta = e.args[-1]
+                raise CompilationError(f"{file_name}:{meta.line}: {str(*e.args[:-1])}")
+        except InternalCompilerError:
             raise
         except VisitError as e:
             if isinstance(e.orig_exc, CompilationError):

@@ -5,9 +5,11 @@ from typing import Literal
 
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
 from luark.opcode.local import LoadLocal, StoreLocal
+from luark.opcode.push import PushConst
+from luark.opcode.table import GetTable, SetTable
 from luark.opcode.upvalue import LoadUpvalue, StoreUpvalue
 from luark.program import Prototype
-from luark.program.program import ConstantPoolType, LocalVariable, LocalVariableStore, Program
+from luark.program.program import ConstantPoolType, LocalVariable, LocalVariableStore, Program, Upvalue
 
 if typing.TYPE_CHECKING:
     from luark.compiler.ast.expressions import CompileTimeConstant
@@ -38,6 +40,7 @@ class _PrototypeState:
         self.blocks: list[_BlockState] = []
         self.block_stack: list[_BlockState] = []
         self.locals = LocalVariableStore()
+        self.upvalues: dict[str, Upvalue] = {}
         self.program_counter = 0  # always points after the last opcode
         self.num_locals = 0  # TODO: remove?
 
@@ -129,8 +132,19 @@ class CompilerState:
             self._current_proto.num_locals += 1
             return index
 
-    def add_const_local(self, name: str, expression: CompileTimeConstant):
+    def add_const_local(self, name: str, expression: CompileTimeConstant) -> None:
         self._current_block.consts[name] = expression
+
+    def get_upvalue(self, name: str) -> Upvalue:
+        if name in self._current_proto.upvalues:
+            return self._current_proto.upvalues[name]
+        raise InternalCompilerError(f"could not find upvalue '{name}'")
+
+    def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState]):
+        top = stack[0]
+        top.upvalues[name] = Upvalue(len(top.upvalues), name, True if name != "_ENV" else False)
+        for proto in stack[1:]:
+            proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
 
     def resolve_variable(self, name: str, operation: Literal["read", "write"]):
         if operation not in ("read", "write"):
@@ -149,13 +163,15 @@ class CompilerState:
                     return
 
                 if name in block.locals:
-                    if is_upvalue:
-                        index = self.get_upvalue_index(name)
+                    if is_upvalue:  # upvalue
+                        self._add_upvalue_chain(name, visited_protos)
+                        index = self.get_upvalue(name).index
+
                         if operation == "read":
                             self.add_opcode(LoadUpvalue(index))
                         elif operation == "write":
                             self.add_opcode(StoreUpvalue(index))
-                    else:
+                    else:  # local or runtime const
                         local = self.get_local(name)
                         index = local.index
                         if operation == "read":
@@ -165,6 +181,17 @@ class CompilerState:
                                 raise CompilationError(f"cannot reassign constant '{name}'")
                             self.add_opcode(StoreLocal(index))
                     return
+
+            # global variable
+            self._add_upvalue_chain("_ENV", visited_protos)
+            env_index = self.get_upvalue("_ENV").index
+            name_index = self.get_const_index(name.encode("utf-8"))
+            self.add_opcode(LoadUpvalue(env_index))
+            self.add_opcode(PushConst(name_index))
+            if operation == "read":
+                self.add_opcode(GetTable())
+            elif operation == "write":
+                self.add_opcode(SetTable())
 
     def compile(self) -> Program:
         protos: list[Prototype] = []
@@ -177,6 +204,7 @@ class CompilerState:
             proto.constant_pool = list(proto_state.consts)
             proto.num_locals = proto_state.num_locals
             proto.locals = proto_state.locals
+            proto.upvalues = list(proto_state.upvalues.values())
             protos.append(proto)
 
         program = Program()

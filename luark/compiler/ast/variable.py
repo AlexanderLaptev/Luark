@@ -9,4 +9,4 @@ class Variable(Expression):
     name: str
 
     def evaluate(self, state: CompilerState) -> None:
-        pass
+        state.resolve_variable(self.name, "read")
