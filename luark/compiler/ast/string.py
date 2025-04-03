@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from lark import Token
 from lark.tree import Meta
 
@@ -102,12 +100,15 @@ def parse_multistring(source: str) -> bytes:
     return source[size:-size].removeprefix("\n").encode("utf-8")
 
 
-@dataclass
 class String(CompileTimeConstant):
     value: bytes
 
+    def __init__(self, meta: Meta, value: bytes):
+        self.meta = meta
+        self.value = value
+
     @staticmethod
-    def of_token(token: Token, meta: Meta):
+    def of_token(meta: Meta, token: Token):
         value: bytes
         if token.type == "STRING":
             value = parse_string(token)
@@ -116,11 +117,11 @@ class String(CompileTimeConstant):
         else:
             raise InternalCompilerError(f"illegal token type '{token.type}' for string: {token}")
 
-        return String(value, meta)
+        return String(meta, value)
 
     @staticmethod
-    def of_literal(literal: str):
-        return String(literal.encode("utf-8"))
+    def of_literal(meta: Meta, literal: str):
+        return String(meta, literal.encode("utf-8"))
 
     def evaluate(self, state: CompilerState) -> None:
         index = state.get_const_index(self.value)
