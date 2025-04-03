@@ -1,15 +1,10 @@
-from abc import abstractmethod
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
-from lark.tree import Meta
-
+from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
 
 
-@dataclass
-class Statement:
-    meta: Meta
-
+class Statement(ABC, AstNode):
     @abstractmethod
     def compile(self, state: CompilerState) -> None:
         pass

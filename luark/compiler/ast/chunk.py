@@ -1,3 +1,4 @@
+from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
 from luark.compiler.ast.function_definitions import (
     FunctionBody,
@@ -7,7 +8,7 @@ from luark.compiler.ast.varargs import Varargs
 from luark.compiler.compiler_state import CompilerState
 
 
-class Chunk:
+class Chunk(AstNode):
     def __init__(self, block: Block):
         self.block = block
         param_list = ParameterList([Varargs()])

@@ -3,11 +3,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Literal
 
+from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode import Opcode
 
 
-class Expression(ABC):
+class Expression(ABC, AstNode):
     @abstractmethod
     def evaluate(self, state: CompilerState) -> None:
         pass

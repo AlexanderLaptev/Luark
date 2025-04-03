@@ -1,9 +1,8 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from luark.compiler.ast.statement import Statement
 
 
-@dataclass
 class Block:
     """
     A block is a collection of statements. The last statement may be a return statement.

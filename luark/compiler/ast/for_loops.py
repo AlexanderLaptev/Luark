@@ -7,7 +7,6 @@ from luark.compiler.ast.statement import Statement
 from luark.compiler.compiler_state import CompilerState
 
 
-@dataclass
 class ForLoop(ABC, Statement):
     pass
 
