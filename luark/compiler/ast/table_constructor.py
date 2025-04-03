@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
+from luark.compiler.ast import AstNode
 from luark.compiler.ast.expressions import Expression
 from luark.compiler.compiler_state import CompilerState
 
 
-class Field:
+class Field(AstNode):
     pass
 
 

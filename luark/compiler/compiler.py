@@ -1,14 +1,17 @@
 import os.path
 import pkgutil
+import sys
 from os import PathLike
 from typing import Literal
 
 from lark import Lark, Token, Tree, UnexpectedInput, UnexpectedToken
+from lark.ast_utils import create_transformer
 from lark.exceptions import VisitError
 from lark.tree import Meta
 
+import luark
+from luark.compiler.ast.ast_transformer import AstTransformer
 from luark.compiler.ast.chunk import Chunk
-from luark.compiler.ast.transformer import LuarkTransformer
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
 from luark.program import Program
@@ -23,7 +26,7 @@ class Compiler:
     }
 
     _lark: Lark = None
-    _transformer: LuarkTransformer
+    _transformer: AstTransformer
 
     def __init__(self, debug: Literal["tree", "code", "all", "none"] = "none"):
         self.debug_tree = False
@@ -96,7 +99,11 @@ class Compiler:
             Compiler._GRAMMAR_FILE_NAME,
         ).decode("utf-8")
 
-        self._transformer = LuarkTransformer()
+        # noinspection PyTypeChecker
+        self._transformer = create_transformer(
+            sys.modules[luark.compiler.ast.__name__],
+            AstTransformer()
+        )
         self._lark = Lark(
             grammar,
             **Compiler._LARK_PARAMS,

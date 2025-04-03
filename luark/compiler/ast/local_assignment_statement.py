@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from luark.compiler.ast import AstNode
 from luark.compiler.ast.constants import NilValue
 from luark.compiler.ast.expressions import CompileTimeConstant, ExpressionList
 from luark.compiler.ast.statement import Statement
@@ -9,7 +10,7 @@ from luark.opcode.local import MarkTBC, StoreLocal
 
 
 @dataclass
-class AttributedName:
+class AttributedName(AstNode):
     name: str
     attribute: str
 

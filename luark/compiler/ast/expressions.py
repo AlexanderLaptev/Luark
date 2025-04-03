@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Literal
 
+from lark.ast_utils import AsList
+
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode import Opcode
@@ -53,7 +55,7 @@ class BinaryExpression(Expression):
 
 
 @dataclass
-class ExpressionList:
+class ExpressionList(AstNode, AsList):
     expressions: list[Expression] = field(default_factory=list)
 
     def evaluate(self, state: CompilerState, adjust_to: int = None) -> None:

@@ -13,6 +13,7 @@ from luark.compiler.ast.if_statement import ElseIf, IfStatement
 from luark.compiler.ast.local_assignment_statement import (
     AttributedName
 )
+from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.string import String
 from luark.compiler.ast.variable import Variable
 from luark.compiler.exceptions import InternalCompilerError
@@ -20,9 +21,14 @@ from luark.compiler.exceptions import InternalCompilerError
 
 # noinspection PyPep8Naming
 # TODO: move custom logic into constructors
-class LuarkTransformer(ExpressionTransformer):
+@v_args(inline=True)
+class AstTransformer(ExpressionTransformer):
     def start(self, chunk: Chunk):
         return chunk
+
+    @v_args(meta=True, inline=False)
+    def block(self, _: Meta, statements: list[Statement]):
+        return Block(statements)
 
     @v_args(meta=True, inline=True)
     def string(self, meta: Meta, token: Token):

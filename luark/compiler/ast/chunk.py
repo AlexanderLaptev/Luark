@@ -1,3 +1,5 @@
+from lark.tree import Meta
+
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
 from luark.compiler.ast.function_definitions import (
@@ -9,11 +11,12 @@ from luark.compiler.compiler_state import CompilerState
 
 
 class Chunk(AstNode):
-    def __init__(self, block: Block):
+    def __init__(self, meta: Meta, block: Block):
+        self.meta = meta
         self.block = block
-        param_list = ParameterList([Varargs()])
-        func_body = FunctionBody(param_list, self.block)
-        self.func_def = FunctionDefinition(func_body, "<$main>")
+        param_list = ParameterList([Varargs(meta)])
+        func_body = FunctionBody(meta, param_list, self.block)
+        self.func_def = FunctionDefinition(meta, func_body, "<$main>")
 
     def compile(self, state: CompilerState):
         # We compile the chunk as a variadic function with the same body.

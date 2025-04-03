@@ -1,4 +1,3 @@
-from abc import ABC
 from dataclasses import dataclass
 
 from luark.compiler.ast import Block
@@ -7,7 +6,8 @@ from luark.compiler.ast.statement import Statement
 from luark.compiler.compiler_state import CompilerState
 
 
-class ForLoop(ABC, Statement):
+# noinspection PyAbstractClass
+class ForLoop(Statement):
     pass
 
 

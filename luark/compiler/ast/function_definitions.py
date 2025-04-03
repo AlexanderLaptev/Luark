@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from luark.compiler.ast import Block
+from luark.compiler.ast.ast_node import AstNode
+from luark.compiler.ast.block import Block
 from luark.compiler.ast.expressions import Expression
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.varargs import Varargs
@@ -8,7 +9,7 @@ from luark.compiler.compiler_state import CompilerState
 
 
 @dataclass
-class ParameterList:
+class ParameterList(AstNode):
     names: list[str]
     has_varargs: bool
 
@@ -27,7 +28,7 @@ class ParameterList:
 
 
 @dataclass
-class FunctionBody:
+class FunctionBody(AstNode):
     parameter_list: ParameterList
     block: Block
 
@@ -59,7 +60,7 @@ class FunctionDefinition(Expression):
 
 
 @dataclass
-class FunctionName:
+class FunctionName(AstNode):
     names: list[str]
     is_method: bool
 

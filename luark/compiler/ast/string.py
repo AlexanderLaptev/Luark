@@ -105,7 +105,6 @@ def parse_multistring(source: str) -> bytes:
 @dataclass
 class String(CompileTimeConstant):
     value: bytes
-    meta: Meta | None = None
 
     @staticmethod
     def of_token(token: Token, meta: Meta):

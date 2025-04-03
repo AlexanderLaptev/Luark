@@ -12,7 +12,8 @@ class TrueValue(CompileTimeConstant):
         raise NotImplementedError
 
 
-TrueValue.INSTANCE = TrueValue()
+# noinspection PyTypeChecker
+TrueValue.INSTANCE = TrueValue(None)
 
 
 class FalseValue(CompileTimeConstant):
@@ -22,7 +23,8 @@ class FalseValue(CompileTimeConstant):
         state.add_opcode(PushFalse())
 
 
-FalseValue.INSTANCE = FalseValue()
+# noinspection PyTypeChecker
+FalseValue.INSTANCE = FalseValue(None)
 
 
 class NilValue(CompileTimeConstant):
@@ -32,4 +34,5 @@ class NilValue(CompileTimeConstant):
         raise NotImplementedError
 
 
-NilValue.INSTANCE = NilValue()
+# noinspection PyTypeChecker
+NilValue.INSTANCE = NilValue(None)

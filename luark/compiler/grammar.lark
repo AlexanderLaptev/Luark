@@ -8,10 +8,10 @@ number: DECIMAL_INT | DECIMAL_FLOAT | HEX_INT | HEX_FLOAT
 string: STRING | MULTISTRING
 varargs: "..."
 
-var: ID
+variable: ID
     | primary "." ID -> dot_access
     | primary "[" expression "]" -> table_access
-var_list: var ("," var)*
+var_list: variable ("," variable)*
 
 table_constructor: "{" [_field_list] "}"
 _field_list: field (("," | ";") field)* ("," | ";")?
@@ -57,7 +57,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | "false" -> false
     | "nil" -> nil
     | varargs
-?primary.10: var
+?primary.10: variable
     | function_call
     | "(" expression ")"
 expression_list: expression ("," expression)*

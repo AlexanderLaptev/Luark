@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from luark.compiler.ast import AstNode
 from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.string import String
@@ -8,7 +9,7 @@ from luark.compiler.compiler_state import CompilerState
 
 
 @dataclass
-class FunctionCallParameters:
+class FunctionCallParameters(AstNode):
     parameters: ExpressionList | TableConstructor | String | None = None
 
 
