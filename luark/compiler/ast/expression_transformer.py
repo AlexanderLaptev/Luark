@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 from lark import Token, Transformer, v_args
+from lark.tree import Meta
 
 from luark.compiler.ast.constants import FalseValue, TrueValue
 from luark.compiler.ast.expressions import BinaryExpression, Expression
@@ -11,7 +12,7 @@ from luark.opcode.binary import BinaryOperation
 
 # TODO: lazy evaluation
 
-@v_args(inline=True)
+@v_args(meta=True, inline=True)
 class ExpressionTransformer(Transformer):
     _COMPARISON_LOOKUP = {
         "<": (BinaryOperation.LESS_THAN, lambda x, y: x < y),
@@ -32,30 +33,31 @@ class ExpressionTransformer(Transformer):
         "^": (BinaryOperation.EXPONENTIATE, lambda x, y: x ** y),
     }
 
-    def or_expression(self, left: Expression, right: Expression) -> Expression:
+    def or_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
         if left == TrueValue.INSTANCE:
             return left
-        return BinaryExpression(left, right, BinaryOperation.OR)
+        return BinaryExpression(meta, left, right, BinaryOperation.OR)
 
-    def and_expression(self, left: Expression, right: Expression) -> Expression:
+    def and_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
         if left == FalseValue.INSTANCE:
             return left
-        return BinaryExpression(left, right, BinaryOperation.AND)
+        return BinaryExpression(meta, left, right, BinaryOperation.AND)
 
-    def comparison_expression(self, left: Expression, sign: Token, right: Expression) -> Expression:
+    def comparison_expression(self, meta: Meta, left: Expression, sign: Token, right: Expression) -> Expression:
         operation, comparator = self._COMPARISON_LOOKUP[sign]
-        return self._comparison(left, right, comparator, operation)
+        return self._comparison(meta, left, right, comparator, operation)
 
-    def add_expression(self, left: Expression, sign: Token, right: Expression) -> Expression:
+    def add_expression(self, meta: Meta, left: Expression, sign: Token, right: Expression) -> Expression:
         operation, calculator = self._ARITHMETIC_LOOKUP[sign]
-        return self._arithmetic(left, right, calculator, operation)
+        return self._arithmetic(meta, left, right, calculator, operation)
 
-    def mul_expression(self, left: Expression, sign: Token, right: Expression) -> Expression:
+    def mul_expression(self, meta: Meta, left: Expression, sign: Token, right: Expression) -> Expression:
         operation, calculator = self._ARITHMETIC_LOOKUP[sign]
-        return self._arithmetic(left, right, calculator, operation)
+        return self._arithmetic(meta, left, right, calculator, operation)
 
     def _comparison(
             self,
+            meta: Meta,
             left: Expression,
             right: Expression,
             comparator: Callable[[int | float, int | float], bool],
@@ -64,10 +66,11 @@ class ExpressionTransformer(Transformer):
         if isinstance(left, Number) and isinstance(right, Number):
             result = comparator(left.value, right.value)
             return TrueValue.INSTANCE if result else FalseValue.INSTANCE
-        return BinaryExpression(left, right, operation)
+        return BinaryExpression(meta, left, right, operation)
 
     def _arithmetic(
             self,
+            meta: Meta,
             left: Expression,
             right: Expression,
             calculator: Callable[[int | float, int | float], int | float],
@@ -75,11 +78,11 @@ class ExpressionTransformer(Transformer):
     ) -> Expression:
         if isinstance(left, Number) and isinstance(right, Number):
             result = calculator(left.value, right.value)
-            return Number(result)
-        return BinaryExpression(left, right, operation)
+            return Number(meta, result)
+        return BinaryExpression(meta, left, right, operation)
 
-    def concat_expression(self, left: Expression, right: Expression) -> Expression:
+    def concat_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
         if isinstance(left, String) and isinstance(right, String):
-            return String(left.value + right.value)
+            return String(meta, left.value + right.value)
         else:
-            return BinaryExpression(left, right, BinaryOperation.CONCATENATE)
+            return BinaryExpression(meta, left, right, BinaryOperation.CONCATENATE)

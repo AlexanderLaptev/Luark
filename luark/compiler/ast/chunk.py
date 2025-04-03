@@ -14,7 +14,7 @@ class Chunk(AstNode):
     def __init__(self, meta: Meta, block: Block):
         self.meta = meta
         self.block = block
-        param_list = ParameterList([Varargs(meta)])
+        param_list = ParameterList(meta, [Varargs(meta)])
         func_body = FunctionBody(meta, param_list, self.block)
         self.func_def = FunctionDefinition(meta, func_body, "<$main>")
 

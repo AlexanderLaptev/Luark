@@ -1,12 +1,10 @@
 from lark import Discard, Token, v_args
 from lark.tree import Meta
 
-from luark.compiler.ast import Block, Chunk
+from luark.compiler.ast import Block, Chunk, FunctionName
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
 from luark.compiler.ast.expression_transformer import ExpressionTransformer
-from luark.compiler.ast.local_assignment_statement import (
-    AttributedName
-)
+from luark.compiler.ast.local_assignment_statement import AttributedName
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.string import String
 from luark.compiler.ast.variable import Variable
@@ -27,6 +25,7 @@ class AstTransformer(ExpressionTransformer):
         return String.of_token(meta, token)
 
     # noinspection PyShadowingBuiltins
+    @v_args(meta=False, inline=False)
     def var_list(self, vars: list[Variable]) -> list[Variable]:
         return vars
 
@@ -48,6 +47,14 @@ class AstTransformer(ExpressionTransformer):
             names: list[AttributedName]
     ) -> list[AttributedName]:
         return names
+
+    @v_args(inline=False)
+    def function_name(self, names: list[str]) -> FunctionName:
+        return FunctionName(names, is_method=False)
+
+    @v_args(inline=False)
+    def method_name(self, names: list[str]) -> FunctionName:
+        return FunctionName(names, is_method=True)
 
     def DECIMAL_INT(self, number: str) -> int:
         return int(number, 10)

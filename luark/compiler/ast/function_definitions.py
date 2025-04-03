@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from lark.ast_utils import AsList
+from lark.tree import Meta
+
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
 from luark.compiler.ast.expressions import Expression
@@ -9,11 +12,12 @@ from luark.compiler.compiler_state import CompilerState
 
 
 @dataclass
-class ParameterList(AstNode):
+class ParameterList(AstNode, AsList):
     names: list[str]
     has_varargs: bool
 
-    def __init__(self, params: list):
+    def __init__(self, meta: Meta, params: list):
+        self.meta = meta
         self.has_varargs = False
 
         if params:
@@ -60,7 +64,7 @@ class FunctionDefinition(Expression):
 
 
 @dataclass
-class FunctionName(AstNode):
+class FunctionName:
     names: list[str]
     is_method: bool
 
