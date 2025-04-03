@@ -73,6 +73,7 @@ class Prototype:
     opcodes: list[Opcode]
     constant_pool: list[ConstantPoolType]
     locals: LocalVariableStore
+    num_locals: int
 
 
 class Program:
