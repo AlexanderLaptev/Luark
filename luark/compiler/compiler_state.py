@@ -18,6 +18,7 @@ if typing.TYPE_CHECKING:
 class _BlockState:
     def __init__(self):
         self.locals = LocalVariableStore()
+        self.temporaries: list[int] = []
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
 
@@ -40,16 +41,16 @@ class _PrototypeState:
         self.blocks: list[_BlockState] = []
         self.block_stack: list[_BlockState] = []
         self.locals = LocalVariableStore()
+        self.released_local_indices: set[int] = set()
         self.upvalues: dict[str, Upvalue] = {}
         self.program_counter = 0  # always points after the last opcode
-        self.num_locals = 0  # TODO: remove?
+        self.num_locals = 0
 
 
 class CompilerState:
     from luark.opcode import Opcode
 
     def __init__(self):
-        self._released_local_indices: set[int] = set()
         self._num_lambdas = 0
 
         self._protos: list[_PrototypeState] = []
@@ -104,7 +105,9 @@ class CompilerState:
         self._current_proto.opcodes.append(opcode)
         self._current_proto.program_counter += 1
 
-    def get_const_index(self, value: ConstantPoolType) -> int:
+    def get_const_index(self, value: ConstantPoolType | str) -> int:
+        if isinstance(value, str):
+            value = value.encode("utf-8")  # automatically encode strings in UTF-8
         if not isinstance(value, ConstantPoolType):
             raise InternalCompilerError(f"cannot put {value} of type {type(value)} into the constant pool")
 
@@ -115,18 +118,32 @@ class CompilerState:
             self._current_proto.consts[value] = index
             return index
 
-    def new_local(self, name: str) -> LocalVariable:
-        index = self._next_local_index()
-        local = LocalVariable(name, index, self.program_counter)
-        self._current_block.locals.add(local)
+    def add_locals(self, name: str, count: int = 1) -> LocalVariable:
+        assert count > 0, "count must be positive"
+        reuse = count == 1
+        local = LocalVariable(
+            name,
+            self._next_local_index(reuse),
+            self._current_proto.program_counter
+        )
+        for _ in range(count - 1):
+            self._current_block.temporaries.append(
+                self._next_local_index(False)
+            )
         return local
 
-    def get_local(self, name: str) -> LocalVariable:
-        return self._current_block.locals.by_name(name)
+    def add_temporaries(self, count: int) -> int:
+        index = self._next_local_index(False)
+        for _ in range(count):
+            self._next_local_index(False)
+        return index
+
+    def release_local(self, index: int) -> None:
+        self._current_proto.released_local_indices.add(index)
 
     def _next_local_index(self, reuse: bool = True) -> int:
-        if reuse and self._released_local_indices:
-            return self._released_local_indices.pop()
+        if reuse and self._current_proto.released_local_indices:
+            return self._current_proto.released_local_indices.pop()
         else:
             index = self._current_proto.num_locals
             self._current_proto.num_locals += 1
@@ -185,13 +202,13 @@ class CompilerState:
             # global variable
             self._add_upvalue_chain("_ENV", visited_protos)
             env_index = self.get_upvalue("_ENV").index
-            name_index = self.get_const_index(name.encode("utf-8"))
+            name_index = self.get_const_index(name)
             self.add_opcode(LoadUpvalue(env_index))
             self.add_opcode(PushConst(name_index))
             if operation == "read":
-                self.add_opcode(GetTable())
+                self.add_opcode(GetTable.INSTANCE)
             elif operation == "write":
-                self.add_opcode(SetTable())
+                self.add_opcode(SetTable.INSTANCE)
 
     def compile(self) -> Program:
         protos: list[Prototype] = []

@@ -103,25 +103,23 @@ def parse_multistring(source: str) -> bytes:
 class String(CompileTimeConstant):
     value: bytes
 
-    def __init__(self, meta: Meta, value: bytes):
+    def __init__(self, meta: Meta, arg: Token | str | bytes):
         self.meta = meta
-        self.value = value
 
-    @staticmethod
-    def of_token(meta: Meta, token: Token):
-        value: bytes
-        if token.type == "STRING":
-            value = parse_string(token)
-        elif token.type == "MULTISTRING":
-            value = parse_multistring(token)
-        else:
-            raise InternalCompilerError(f"illegal token type '{token.type}' for string: {token}")
+        if isinstance(arg, Token):
+            if arg.type == "STRING":
+                self.value = parse_string(arg)
+            elif arg.type == "MULTISTRING":
+                self.value = parse_multistring(arg)
+            else:
+                raise InternalCompilerError(f"illegal token type '{arg.type}' for string: {arg}")
+            return
 
-        return String(meta, value)
+        if isinstance(arg, str):
+            arg = arg.encode("utf-8")
 
-    @staticmethod
-    def of_literal(meta: Meta, literal: str):
-        return String(meta, literal.encode("utf-8"))
+        assert isinstance(arg, bytes)
+        self.value = arg
 
     def evaluate(self, state: CompilerState) -> None:
         index = state.get_const_index(self.value)

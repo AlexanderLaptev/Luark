@@ -145,7 +145,7 @@ class Program:
         output.append("")
 
         output.append(f"upvalues({len(proto.upvalues)}):")
-        table = [["index", "name", "local?"]]
+        table = [["index", "name", "on stack?"]]
         for i, upvalue in enumerate(proto.upvalues):
             row = [i, upvalue.name, str(upvalue.is_on_stack).lower()]
             table.append(row)

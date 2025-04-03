@@ -4,7 +4,7 @@ from luark.program import Program, Prototype
 
 def _format_upvalue(index: int, proto: Prototype) -> str:
     upvalue = proto.upvalues[index]
-    return f"(up) {upvalue.name}[{upvalue.index}]"
+    return f"{upvalue.name}[{upvalue.index}]"
 
 
 class LoadUpvalue(Opcode):

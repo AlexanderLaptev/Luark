@@ -14,7 +14,7 @@ from luark.compiler.ast.ast_transformer import AstTransformer
 from luark.compiler.ast.chunk import Chunk
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
-from luark.program import Program
+from luark.program.program import Program
 
 
 class Compiler:
