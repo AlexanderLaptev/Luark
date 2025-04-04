@@ -49,6 +49,9 @@ class _PrototypeState:
         self.program_counter = 0  # always points after the last opcode
         self.num_locals = 0
 
+    def __str__(self):
+        return f"Proto<{self.func_name}>: c:{len(self.consts)} l:{len(self.locals)} u:{len(self.upvalues)}"
+
 
 class CompilerState:
     from luark.opcode import Opcode
@@ -197,11 +200,12 @@ class CompilerState:
         raise InternalCompilerError(f"could not find upvalue '{name}'")
 
     def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState]):
-        top = stack[0]
-        if name in top.upvalues:
+        stack = stack[::-1]
+        bottom = stack[0]
+        if name in bottom.upvalues:
             return
 
-        top.upvalues[name] = Upvalue(len(top.upvalues), name, True if name != "_ENV" else False)
+        bottom.upvalues[name] = Upvalue(len(bottom.upvalues), name, True)
         for proto in stack[1:]:
             proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
 
@@ -241,16 +245,16 @@ class CompilerState:
                             self.add_opcode(StoreLocal(index))
                     return
 
-            # global variable
-            self._add_upvalue_chain("_ENV", visited_protos)
-            env_index = self._get_upvalue("_ENV").index
-            name_index = self.get_const_index(name)
-            self.add_opcode(LoadUpvalue(env_index))
-            self.add_opcode(PushConst(name_index))
-            if operation == "read":
-                self.add_opcode(GetTable.INSTANCE)
-            elif operation == "write":
-                self.add_opcode(SetTable.INSTANCE)
+        # global variable
+        self._add_upvalue_chain("_ENV", visited_protos)
+        env_index = self._get_upvalue("_ENV").index
+        name_index = self.get_const_index(name)
+        self.add_opcode(LoadUpvalue(env_index))
+        self.add_opcode(PushConst(name_index))
+        if operation == "read":
+            self.add_opcode(GetTable.INSTANCE)
+        elif operation == "write":
+            self.add_opcode(SetTable.INSTANCE)
 
     def compile(self) -> Program:
         protos: list[Prototype] = []
