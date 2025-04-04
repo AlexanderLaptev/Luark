@@ -1,11 +1,5 @@
----[[
-for i = 1, 5, 3  do
-    x = x + 1
-end
---]]
-
---[[
-for i, v in x, y, z, w do
-
-end
---]]
+--foo()
+-- foo(1)
+-- foo(1, "hello")
+-- foo(1, (bar()), baz())
+foo(1, bar(), baz())

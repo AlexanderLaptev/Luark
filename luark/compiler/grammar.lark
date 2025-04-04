@@ -59,7 +59,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
     | varargs
 ?primary.10: variable
     | function_call
-    | "(" expression ")"
+    | "(" expression ")" -> parentheses
 expression_list: expression ("," expression)*
 
 ?statement: ";" -> empty_statement

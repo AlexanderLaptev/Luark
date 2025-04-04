@@ -112,13 +112,18 @@ class CompilerState:
         self._num_lambdas += 1
         return result
 
-    def add_opcode(self, opcode: Opcode | None) -> None:
+    def add_opcode(self, opcode: Opcode) -> None:
+        if opcode is None:
+            pass
+        assert opcode is not None
         self._current_proto.opcodes.append(opcode)
         self._current_proto.program_counter += 1
 
     def reserve_opcode(self) -> int:
         pc = self._current_proto.program_counter
-        self.add_opcode(None)
+        # noinspection PyTypeChecker
+        self._current_proto.opcodes.append(None)
+        self._current_proto.program_counter += 1
         return pc
 
     def add_jump(self, target: int = None):

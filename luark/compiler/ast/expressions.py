@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal
 
 from lark.ast_utils import AsList
 
@@ -17,12 +16,20 @@ class Expression(ABC, AstNode):
         pass
 
 
+@dataclass
+class Parentheses(Expression):
+    inner: Expression
+
+    def evaluate(self, state: CompilerState) -> None:
+        self.inner.evaluate(state)
+
+
 class MultiresExpression(Expression):
     @abstractmethod
     def evaluate(
             self,
             state: CompilerState,
-            return_count: int | Literal["all"] = 1
+            return_count: int = 2,
     ) -> None:
         pass
 
@@ -82,6 +89,7 @@ class ExpressionList(AstNode, AsList):
         We still need to specify how many values
         we expect to receive in the end.
         """
+
         assert count != 0, "cannot statically adjust to 0 values"
 
         difference = count - len(self.expressions)
