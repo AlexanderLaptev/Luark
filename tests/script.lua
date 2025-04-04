@@ -1,5 +1,1 @@
---foo()
--- foo(1)
--- foo(1, "hello")
--- foo(1, (bar()), baz())
-foo(1, bar(), baz())
+local a, b = foo(), bar()

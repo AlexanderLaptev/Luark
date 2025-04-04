@@ -69,12 +69,12 @@ class LocalAssignmentStatement(Statement):
 
         # Filter out compile time consts from the expression list
         expressions = [x for x in expressions if (x is not None)]
-        ExpressionList(expressions).evaluate(state, len(variables))
+        ExpressionList(self.meta, expressions).evaluate(state, len(variables))
 
         # Assign values
         for i in variables:
             name = self.attributed_names[i].name
-            var = state.new_local(name)
+            var = state.add_locals(name)
             state.add_opcode(StoreLocal(var.index))
 
             if i in runtime_consts:
