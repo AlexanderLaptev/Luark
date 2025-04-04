@@ -6,9 +6,11 @@ from lark.tree import Meta
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
 from luark.compiler.ast.expressions import Expression
+from luark.compiler.ast.return_statement import ReturnStatement
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.varargs import Varargs
 from luark.compiler.compiler_state import CompilerState
+from luark.opcode.return_opcode import Return
 
 
 @dataclass
@@ -57,8 +59,19 @@ class FunctionDefinition(Expression):
 
         state.begin_proto(name, param_count, is_variadic)
         state.begin_block()
-        for statement in self.body.block.statements:
-            statement.compile(state)
+
+        statements = self.body.block.statements
+        if statements:
+            last = statements[-1]
+            for stmt in self.body.block.statements[:-1]:
+                stmt.compile(state)
+            if isinstance(last, ReturnStatement):
+                last.compile(state)
+            else:
+                state.add_opcode(Return(1))
+        else:
+            state.add_opcode(Return(1))
+
         state.end_block()
         state.end_proto()
 
