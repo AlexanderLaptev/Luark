@@ -4,6 +4,8 @@ from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
 from luark.compiler.ast.expressions import Expression, ExpressionList
+from luark.compiler.ast.local_assignment_statement import AttributedName
+from luark.compiler.ast.local_assignment_statement import LocalAssignmentStatement
 from luark.compiler.ast.return_statement import ReturnStatement
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.variable import DotAccess, Lvalue, Variable
@@ -78,36 +80,25 @@ class FunctionDefinitionStatement(Statement):
     body: FunctionBody
 
     def compile(self, state: CompilerState) -> None:
-        names = self.name.names
+        func_names = self.name.names
         lvalue: Lvalue
-        if len(names) == 1:
-            lvalue = Variable(self.meta, names[0])
+        if len(func_names) == 1:
+            lvalue = Variable(self.meta, func_names[0])
         else:
-            lvalue = Variable(self.meta, names[0])
-            for name in names[1:]:
+            lvalue = Variable(self.meta, func_names[0])
+            for name in func_names[1:]:
                 lvalue = DotAccess(self.meta, lvalue, name)
 
-        params = self.body.parameter_list
-        if not params:
-            param_names = []
-            if self.name.is_method:
-                param_names.append("self")
-            param_list = ParameterList(param_names, False)
-        else:
-            param_names: list[str]
-            if params:
-                if self.name.is_method:
-                    param_names = ["self", *params.names]
-                else:
-                    param_names = params.names
-            else:
-                param_names = []
-            param_list = ParameterList(param_names, params.has_varargs)
+        old_param_list = self.body.parameter_list
+        old_param_names = old_param_list.names if old_param_list else []
+        new_param_names = ["self", *old_param_names] if self.name.is_method else old_param_names
+        new_varargs = old_param_list.has_varargs if old_param_list else False
+        new_param_list = ParameterList(new_param_names, new_varargs)
 
         func_def = FunctionDefinition(
             self.meta,
-            FunctionBody(self.meta, param_list, self.body.block),
-            names[-1]
+            FunctionBody(self.meta, new_param_list, self.body.block),
+            func_names[-1]
         )
         assignment = AssignmentStatement(
             self.meta,
@@ -118,6 +109,19 @@ class FunctionDefinitionStatement(Statement):
 
 
 @dataclass
-class LocalFunctionDefinitionStatement(FunctionDefinitionStatement):
+class LocalFunctionDefinitionStatement(Statement):
+    name: str
+    body: FunctionBody
+
     def compile(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        func_def = FunctionDefinition(
+            self.meta,
+            FunctionBody(self.meta, self.body.parameter_list, self.body.block),
+            self.name
+        )
+        assignment = LocalAssignmentStatement(
+            self.meta,
+            [AttributedName(self.meta, self.name, None)],
+            ExpressionList(self.meta, [func_def])
+        )
+        assignment.compile(state)

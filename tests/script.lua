@@ -18,4 +18,8 @@
 -- function a:b(x, y) end
 -- function a:b(x, y, ...) end
 
-function a.b.c:d(x, y, z, ...) end
+-- function a.b.c:d(x, y, z, ...) end
+
+-- local function foo() end
+-- local function foo(a) end
+local function foo(a, b, ...) end
