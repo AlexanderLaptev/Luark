@@ -1,6 +1,5 @@
-import warnings
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 from lark.ast_utils import AsList
@@ -8,6 +7,8 @@ from lark.ast_utils import AsList
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode import Opcode
+from luark.opcode.pop import Pop
+from luark.opcode.push import PushNil
 
 
 class Expression(ABC, AstNode):
@@ -56,11 +57,65 @@ class BinaryExpression(Expression):
 
 @dataclass
 class ExpressionList(AstNode, AsList):
-    expressions: list[Expression] = field(default_factory=list)
+    expressions: list[Expression]
 
-    def evaluate(self, state: CompilerState, adjust_to: int = None) -> None:
-        if adjust_to:  # TODO
-            warnings.warn("expression list adjustments are not yet supported")
+    def evaluate(self, state: CompilerState, adjust_to_count: int = None) -> None:
+        if adjust_to_count:
+            self._adjust(state, adjust_to_count)
+            return
 
-        for expression in self.expressions:
+        for expression in reversed(self.expressions):
             expression.evaluate(state)
+
+    # TODO: verify order!
+    def _adjust(self, state: CompilerState, count: int) -> None:
+        """
+        Adjusts the expression list statically to the specified length.
+        Static adjustments are performed by:
+        1. Assignments.
+        2. Local assignments.
+        3. Generic for loops.
+
+        Other adjustments are done dynamically by the VM at runtime.
+        If the last expression is multires, the
+        adjustment must be performed dynamically.
+        We still need to specify how many values
+        we expect to receive in the end.
+        """
+        assert count != 0, "cannot statically adjust to 0 values"
+
+        difference = count - len(self.expressions)
+        if difference > 0:  # append nils
+            if self.expressions:
+                if isinstance(self.expressions[-1], MultiresExpression):
+                    # noinspection PyTypeChecker
+                    expr: MultiresExpression = self.expressions[-1]
+                    expr.evaluate(state, 2 + difference)
+                else:
+                    for _ in range(difference):
+                        state.add_opcode(PushNil.INSTANCE)
+                    self.expressions[-1].evaluate(state)
+            else:
+                for _ in range(difference):
+                    state.add_opcode(PushNil.INSTANCE)
+
+            for expr in reversed(self.expressions[:-1]):
+                expr.evaluate(state)
+        else:
+            # Even if there are more values then expected,
+            # we still have to evaluate them all and simply
+            # discard them later.
+            last: Expression = self.expressions[-1]
+            if isinstance(last, MultiresExpression):
+                # Tell the VM to discard all values if
+                # we're already beyond the list of names.
+                return_count = 2 if (difference == 0) else 1
+                last.evaluate(state, return_count)
+            else:
+                last.evaluate(state)
+
+            for expr in reversed(self.expressions[:-1]):
+                expr.evaluate(state)
+
+            for _ in range(-difference):  # diff is <= 0 here, so negate it
+                state.add_opcode(Pop.INSTANCE)  # discard extra values

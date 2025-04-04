@@ -24,13 +24,13 @@ class AstTransformer(ExpressionTransformer):
     def var_list(self, vars: list[Variable]) -> list[Variable]:
         return vars
 
-    def true(self, _) -> TrueValue:
+    def true(self) -> TrueValue:
         return TrueValue.INSTANCE
 
-    def false(self, _) -> FalseValue:
+    def false(self) -> FalseValue:
         return FalseValue.INSTANCE
 
-    def nil(self, _) -> NilValue:
+    def nil(self) -> NilValue:
         return NilValue.INSTANCE
 
     def empty_statement(self) -> Discard:

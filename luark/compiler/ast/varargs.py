@@ -10,4 +10,4 @@ class Varargs(MultiresExpression):
             state: CompilerState,
             return_count: int | Literal["all"] = 1
     ) -> None:
-        pass
+        raise NotImplementedError

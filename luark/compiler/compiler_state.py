@@ -138,6 +138,9 @@ class CompilerState:
             self._next_local_index(False)
         return index
 
+    def get_local(self, name: str) -> LocalVariable:
+        return self._current_block.locals.by_name(name)
+
     def release_local(self, index: int) -> None:
         self._current_proto.released_local_indices.add(index)
 
@@ -159,6 +162,9 @@ class CompilerState:
 
     def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState]):
         top = stack[0]
+        if name in top.upvalues:
+            return
+
         top.upvalues[name] = Upvalue(len(top.upvalues), name, True if name != "_ENV" else False)
         for proto in stack[1:]:
             proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)

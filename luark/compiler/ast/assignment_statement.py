@@ -21,7 +21,7 @@ class AssignmentStatement(Statement):
 
         self.expression_list.evaluate(state, len(self.targets))
         temporaries = temporaries[::-1]  # ensure they are read in reverse order
-        for target in reversed(self.targets):
+        for target in self.targets:
             target.assign(state, temporaries)
 
         for temp in temporaries:
