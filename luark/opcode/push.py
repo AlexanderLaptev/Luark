@@ -22,6 +22,33 @@ class PushConst(Opcode):
         return str(value)
 
 
+class PushInt(Opcode):
+    value: int
+
+    def __init__(self, value: int):
+        super().__init__("push_int")
+        self.value = value
+
+    @property
+    def arg_str(self) -> str:
+        return str(self.value)
+
+
+class PushFloat(Opcode):
+    value: int
+
+    def __init__(self, value: int | float):
+        super().__init__("push_float")
+        if isinstance(value, float):
+            frac = value - int(value)
+            assert frac == 0, "attempted to push a non-integer value as a float"
+        self.value = value
+
+    @property
+    def arg_str(self) -> str:
+        return str(self.value) + ".0"
+
+
 class PushTrue(Opcode):
     INSTANCE: Self = None
 

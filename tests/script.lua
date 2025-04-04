@@ -1,12 +1,8 @@
----[[
-repeat
-    x = x + 1
-    break
-    while 2 do
-        y = y * 2
-        break
-    end
-until 1
+--[[
+for i = 0, 5, 3  do
+end
 --]]
 
---break
+for i, v in x, y, z, w do
+
+end
