@@ -1,5 +1,5 @@
 ---[[
-for i = 0, 5, 3  do
+for i = 1, 5, 3  do
     x = x + 1
 end
 --]]

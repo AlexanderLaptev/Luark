@@ -82,7 +82,6 @@ class GenericForLoop(ForLoop):
 
     def compile(self, state: CompilerState) -> None:
         state.begin_block()
-
         control_local = state.add_locals(self.name_list[0], 4)
 
         control_index = control_local.index
