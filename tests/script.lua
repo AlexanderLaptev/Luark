@@ -1,4 +1,4 @@
-function foo(bar, baz)
+function foo()
     bar(1)
     baz("test")
 end

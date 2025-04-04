@@ -131,37 +131,40 @@ class Program:
         output.append(_tabulate(table))
         output.append("")
 
-        output.append(f"consts({len(proto.constant_pool)}):")
-        table = [["index", "type", "value"]]
-        for i, const in enumerate(proto.constant_pool):
-            stype: str = ""
-            if isinstance(const, bytes):
-                const = str(const)[1:]
-                stype = "string"
-            elif isinstance(const, int):
-                stype = "int"
-            elif isinstance(const, float):
-                stype = "float"
-            row = [i, stype, const]
-            table.append(row)
-        output.append(_indent_lines(_tabulate(table)))
-        output.append("")
+        if proto.constant_pool:
+            output.append(f"consts({len(proto.constant_pool)}):")
+            table = [["index", "type", "value"]]
+            for i, const in enumerate(proto.constant_pool):
+                stype: str = ""
+                if isinstance(const, bytes):
+                    const = str(const)[1:]
+                    stype = "string"
+                elif isinstance(const, int):
+                    stype = "int"
+                elif isinstance(const, float):
+                    stype = "float"
+                row = [i, stype, const]
+                table.append(row)
+            output.append(_indent_lines(_tabulate(table)))
+            output.append("")
 
-        output.append(f"locals({len(proto.locals)}):")
-        table = [["index", "name", "start", "end"]]
-        for i, local in enumerate(proto.locals):
-            name = local.name if local.name is not None else "(temp)"
-            row = [i, name, local.start, local.end]
-            table.append(row)
-        output.append(_indent_lines(_tabulate(table)))
-        output.append("")
+        if proto.locals:
+            output.append(f"locals({len(proto.locals)}):")
+            table = [["index", "name", "start", "end"]]
+            for i, local in enumerate(proto.locals):
+                name = local.name if local.name is not None else "(temp)"
+                row = [i, name, local.start, local.end]
+                table.append(row)
+            output.append(_indent_lines(_tabulate(table)))
+            output.append("")
 
-        output.append(f"upvalues({len(proto.upvalues)}):")
-        table = [["index", "name", "on stack?"]]
-        for i, upvalue in enumerate(proto.upvalues):
-            row = [i, upvalue.name, str(upvalue.is_on_stack).lower()]
-            table.append(row)
-        output.append(_indent_lines(_tabulate(table)))
+        if proto.upvalues:
+            output.append(f"upvalues({len(proto.upvalues)}):")
+            table = [["index", "name", "on stack?"]]
+            for i, upvalue in enumerate(proto.upvalues):
+                row = [i, upvalue.name, str(upvalue.is_on_stack).lower()]
+                table.append(row)
+            output.append(_indent_lines(_tabulate(table)))
 
         return "\n".join(output)
 
