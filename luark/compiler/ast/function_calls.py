@@ -53,10 +53,10 @@ class FunctionCall(MultiresExpression):
             state.add_opcode(Call(param_count, return_count))
             return
 
-        # TODO: check last varargs in parentheses
         state.add_opcode(PrepareCall.INSTANCE)
         if self.is_method:
             state.add_opcode(LoadLocal(self_index))
+            state.release_locals(self_index)
         for expr in expressions[:-1]:
             expr.evaluate(state)
 

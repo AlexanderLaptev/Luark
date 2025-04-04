@@ -25,4 +25,4 @@ class AssignmentStatement(Statement):
             target.assign(state, temporaries)
 
         for temp in temporaries:
-            state.release_local(temp)
+            state.release_locals(temp)

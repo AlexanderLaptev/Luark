@@ -68,6 +68,7 @@ class NumericForLoop(ForLoop):
         loop_start_pc = state.program_counter
         state.add_opcode(TestNumericFor(control_local.index))
         self._emit_body(state, loop_start_pc)
+        state.release_locals(control_local.index, 3)
 
 
 @dataclass
@@ -111,3 +112,4 @@ class GenericForLoop(ForLoop):
         state.add_opcode(LoadLocal(control_index))
         state.add_opcode(TestNil.INSTANCE)
         self._emit_body(state, loop_start_pc)
+        state.release_locals(control_local.index, 4)
