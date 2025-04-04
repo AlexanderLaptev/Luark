@@ -4,7 +4,8 @@ from luark.program import Program, Prototype
 
 def _format_local(index: int, proto: Prototype) -> str:
     local = proto.locals.by_index(index)
-    return f"{local.name}[{index}]"
+    name = local.name if local.name is not None else "(temp)"
+    return f"{name}[{index}]"
 
 
 class LoadLocal(Opcode):

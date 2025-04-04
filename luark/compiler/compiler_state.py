@@ -21,7 +21,6 @@ if typing.TYPE_CHECKING:
 class _BlockState:
     def __init__(self):
         self.locals = LocalVariableStore()
-        self.temporaries: list[int] = []
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
         self.break_stack: list[list[int]] = []
@@ -151,25 +150,19 @@ class CompilerState:
             self._current_proto.consts[value] = index
             return index
 
-    def add_locals(self, name: str, count: int = 1) -> LocalVariable:
+    def add_locals(self, name: str | None, count: int = 1) -> LocalVariable:
         assert count > 0, "count must be positive"
         reuse = count == 1
-        local = LocalVariable(
-            name,
-            self._next_local_index(reuse),
-            self._current_proto.program_counter
-        )
+        pc = self._current_proto.program_counter
+        local = LocalVariable(self._next_local_index(reuse), pc, name)
+        self._current_block.locals.add(local)
         for _ in range(count - 1):
-            self._current_block.temporaries.append(
-                self._next_local_index(False)
-            )
+            temp = LocalVariable(self._next_local_index(), pc, None)
+            self._current_block.locals.add(temp)
         return local
 
     def add_temporaries(self, count: int) -> int:
-        index = self._next_local_index(False)
-        for _ in range(count):
-            self._next_local_index(False)
-        return index
+        return self.add_locals(None, count).index
 
     def get_local(self, name: str) -> LocalVariable:
         return self._current_block.locals.by_name(name)
@@ -188,7 +181,7 @@ class CompilerState:
     def add_const_local(self, name: str, expression: CompileTimeConstant) -> None:
         self._current_block.consts[name] = expression
 
-    def get_upvalue(self, name: str) -> Upvalue:
+    def _get_upvalue(self, name: str) -> Upvalue:
         if name in self._current_proto.upvalues:
             return self._current_proto.upvalues[name]
         raise InternalCompilerError(f"could not find upvalue '{name}'")
@@ -221,7 +214,7 @@ class CompilerState:
                 if name in block.locals:
                     if is_upvalue:  # upvalue
                         self._add_upvalue_chain(name, visited_protos)
-                        index = self.get_upvalue(name).index
+                        index = self._get_upvalue(name).index
 
                         if operation == "read":
                             self.add_opcode(LoadUpvalue(index))
@@ -240,7 +233,7 @@ class CompilerState:
 
             # global variable
             self._add_upvalue_chain("_ENV", visited_protos)
-            env_index = self.get_upvalue("_ENV").index
+            env_index = self._get_upvalue("_ENV").index
             name_index = self.get_const_index(name)
             self.add_opcode(LoadUpvalue(env_index))
             self.add_opcode(PushConst(name_index))

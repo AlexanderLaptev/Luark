@@ -36,9 +36,9 @@ class Upvalue:
 
 @dataclass
 class LocalVariable:
-    name: str
     index: int
     start: int
+    name: str | None = None
     end: int | None = None
     is_const: bool = False
 
@@ -46,11 +46,16 @@ class LocalVariable:
 class LocalVariableStore:
     def __init__(self):
         self._locals: list[LocalVariable] = []
-        self._lookup: dict[str, LocalVariable] = {}
+        self._name_lookup: dict[str, list[LocalVariable]] = {}
+        self._index_lookup: dict[int, LocalVariable] = {}
 
     def add(self, local: LocalVariable):
         self._locals.append(local)
-        self._lookup[local.name] = local
+        if local.name:
+            if local.name not in self._name_lookup:
+                self._name_lookup[local.name] = []
+            self._name_lookup[local.name].append(local)
+        self._index_lookup[local.index] = local
 
     def by_index(self, index: int) -> LocalVariable:
         for local in self._locals:
@@ -59,7 +64,10 @@ class LocalVariableStore:
         raise InternalCompilerError(f"local variable with index {index} not found")
 
     def by_name(self, name: str) -> LocalVariable:
-        return self._lookup[name]
+        return self._name_lookup[name][-1]
+
+    def by_name_all(self, name: str) -> list[LocalVariable]:
+        return self._name_lookup[name]
 
     def merge(self, other: LocalVariableStore):
         for local in other:
@@ -139,7 +147,8 @@ class Program:
         output.append(f"locals({len(proto.locals)}):")
         table = [["index", "name", "start", "end"]]
         for i, local in enumerate(proto.locals):
-            row = [i, local.name, local.start, local.end]
+            name = local.name if local.name is not None else "(temp)"
+            row = [i, name, local.start, local.end]
             table.append(row)
         output.append(_indent_lines(_tabulate(table)))
         output.append("")
