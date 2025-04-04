@@ -69,6 +69,9 @@ class LocalVariableStore:
     def by_name_all(self, name: str) -> list[LocalVariable]:
         return self._name_lookup[name]
 
+    def has_name(self, name: str) -> bool:
+        return name in self._name_lookup
+
     def merge(self, other: LocalVariableStore):
         for local in other:
             self.add(local)

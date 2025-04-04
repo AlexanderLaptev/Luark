@@ -221,7 +221,7 @@ class CompilerState:
                     block.consts[name].evaluate(self)
                     return
 
-                if name in block.locals:
+                if block.locals.has_name(name):
                     if is_upvalue:  # upvalue
                         self._add_upvalue_chain(name, visited_protos)
                         index = self._get_upvalue(name).index
