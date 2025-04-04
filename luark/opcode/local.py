@@ -18,7 +18,7 @@ class LoadLocal(Opcode):
     def arg_str(self) -> str:
         return f"{self.index}"
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         return _format_local(self.index, proto)
 
 
@@ -33,7 +33,7 @@ class StoreLocal(Opcode):
     def arg_str(self) -> str:
         return f"{self.index}"
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         return _format_local(self.index, proto)
 
 
@@ -48,5 +48,5 @@ class MarkTBC(Opcode):
     def arg_str(self) -> str:
         return f"{self.index}"
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         return _format_local(self.index, proto)

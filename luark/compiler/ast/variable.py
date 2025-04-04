@@ -36,10 +36,10 @@ class Variable(Expression, Lvalue):
     def evaluate(self, state: CompilerState, temporaries: list[int] = None) -> None:
         if temporaries is not None:
             return
-        state.resolve_variable(self.name, "read")
+        state.resolve_variable(self.meta, self.name, "read")
 
     def assign(self, state: CompilerState, temporaries: list):
-        state.resolve_variable(self.name, "write")
+        state.resolve_variable(self.meta, self.name, "write")
 
 
 @dataclass

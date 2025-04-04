@@ -1,15 +1,12 @@
---[[
-a = 1
-a = "str"
-a = 'str'
-a = [=[multistr]=]
-a = 5.0
-a = 3.14
-a = true
-a = false
-a = nil
+---[[
+repeat
+    x = x + 1
+    break
+    while 2 do
+        y = y * 2
+        break
+    end
+until 1
 --]]
 
--- a, b, c = 1
--- a, b, c = 1, 2
-a, b, c = 1, 2, 3
+--break

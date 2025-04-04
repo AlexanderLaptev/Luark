@@ -16,5 +16,5 @@ class Opcode:
     def arg_str(self) -> str:
         return ""
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return ""

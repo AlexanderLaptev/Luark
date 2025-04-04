@@ -15,7 +15,7 @@ class PushConst(Opcode):
     def arg_str(self) -> str:
         return f"{self.index}"
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         value = proto.constant_pool[self.index]
         if isinstance(value, bytes):
             value = str(value)[1:]

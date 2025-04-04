@@ -3,7 +3,10 @@ from __future__ import annotations
 import typing
 from typing import Literal
 
+from lark.tree import Meta
+
 from luark.compiler.exceptions import CompilationError, InternalCompilerError
+from luark.opcode.jump import Jump
 from luark.opcode.local import LoadLocal, StoreLocal
 from luark.opcode.push import PushConst
 from luark.opcode.table import GetTable, SetTable
@@ -21,6 +24,7 @@ class _BlockState:
         self.temporaries: list[int] = []
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
+        self.break_stack: list[list[int]] = []
 
 
 class _PrototypeState:
@@ -96,14 +100,43 @@ class CompilerState:
         else:
             self._current_block = None
 
+    def begin_loop(self) -> None:
+        self._current_block.break_stack.append([])
+
+    def end_loop(self) -> None:
+        breaks = self._current_block.break_stack.pop()
+        for br in breaks:
+            self.set_jump(br)
+
     def next_lambda_index(self) -> int:
         result = self._num_lambdas
         self._num_lambdas += 1
         return result
 
-    def add_opcode(self, opcode: Opcode) -> None:
+    def add_opcode(self, opcode: Opcode | None) -> None:
         self._current_proto.opcodes.append(opcode)
         self._current_proto.program_counter += 1
+
+    def reserve_opcode(self) -> int:
+        pc = self._current_proto.program_counter
+        self.add_opcode(None)
+        return pc
+
+    def add_jump(self, target: int = None):
+        self.add_opcode(Jump(target - self._current_proto.program_counter))
+
+    def set_jump(self, opcode_pc: int, target: int = None):
+        pc = self._current_proto.program_counter
+        if not target:
+            target = pc
+        self._current_proto.opcodes[opcode_pc] = Jump(target - opcode_pc)
+
+    def add_break(self, meta: Meta):
+        if not self._current_block.break_stack:
+            raise CompilationError("break statement is not allowed outside of a loop", meta)
+        pc = self._current_proto.program_counter
+        self.reserve_opcode()
+        self._current_block.break_stack[-1].append(pc)
 
     def get_const_index(self, value: ConstantPoolType | str) -> int:
         if isinstance(value, str):
@@ -169,7 +202,7 @@ class CompilerState:
         for proto in stack[1:]:
             proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
 
-    def resolve_variable(self, name: str, operation: Literal["read", "write"]):
+    def resolve_variable(self, meta: Meta, name: str, operation: Literal["read", "write"]):
         if operation not in ("read", "write"):
             raise InternalCompilerError(f"illegal operation: {operation}")
 
@@ -201,7 +234,7 @@ class CompilerState:
                             self.add_opcode(LoadLocal(index))
                         elif operation == "write":
                             if local.is_const:
-                                raise CompilationError(f"cannot reassign constant '{name}'")
+                                raise CompilationError(f"cannot reassign constant '{name}'", meta)
                             self.add_opcode(StoreLocal(index))
                     return
 
@@ -219,6 +252,8 @@ class CompilerState:
     def compile(self) -> Program:
         protos: list[Prototype] = []
         for proto_state in self._protos:
+            assert None not in proto_state.opcodes
+
             proto = Prototype()
             proto.function_name = proto_state.func_name
             proto.fixed_param_count = proto_state.fixed_param_count

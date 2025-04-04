@@ -4,4 +4,4 @@ from luark.compiler.compiler_state import CompilerState
 
 class BreakStatement(Statement):
     def compile(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        state.add_break(self.meta)

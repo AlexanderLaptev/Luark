@@ -111,7 +111,7 @@ class Program:
 
         table = []
         for i, opcode in enumerate(proto.opcodes):
-            row = [i, opcode.name, opcode.arg_str, opcode.comment_str(self, proto)]
+            row = [i, opcode.name, opcode.arg_str, opcode.comment_str(self, proto, i)]
             if row[-1]:
                 row[-1] = "; " + row[-1]
             for j in range(1, len(row)):

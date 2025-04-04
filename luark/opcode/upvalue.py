@@ -18,7 +18,7 @@ class LoadUpvalue(Opcode):
     def arg_str(self) -> str:
         return str(self.index)
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         return _format_upvalue(self.index, proto)
 
 
@@ -33,5 +33,5 @@ class StoreUpvalue(Opcode):
     def arg_str(self) -> str:
         return str(self.index)
 
-    def comment_str(self, program: Program, proto: Prototype) -> str:
+    def comment_str(self, program: Program, proto: Prototype, pc) -> str:
         return _format_upvalue(self.index, proto)
