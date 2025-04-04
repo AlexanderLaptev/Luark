@@ -11,6 +11,7 @@ from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.variable import DotAccess, Lvalue, Variable
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode.closure import Closure
+from luark.opcode.local import StoreLocal
 from luark.opcode.return_opcode import Return
 
 
@@ -41,14 +42,17 @@ class FunctionDefinition(Expression):
             name = f"<lambda#{state.next_lambda_index()}>"
 
         params = self.body.parameter_list
-        param_count = 0
-        is_variadic = False
-        if params:
-            param_count = len(params.names)
-            is_variadic = params.has_varargs
+        param_names = params.names if params else []
+        is_variadic = params.has_varargs if params else False
 
-        proto = state.begin_proto(name, param_count, is_variadic)
+        proto = state.begin_proto(name, len(param_names), is_variadic)
         state.begin_block()
+
+        param_locals = []
+        for name in param_names:
+            var = state.add_locals(name)
+            param_locals.append(var)
+            state.add_opcode(StoreLocal(var.index))
 
         statements = self.body.block.statements
         if statements:
