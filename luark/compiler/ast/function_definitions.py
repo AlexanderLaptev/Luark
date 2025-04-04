@@ -1,36 +1,21 @@
 from dataclasses import dataclass
 
-from lark.ast_utils import AsList
-from lark.tree import Meta
-
+from luark.compiler.ast.assignment_statement import AssignmentStatement
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.ast.block import Block
-from luark.compiler.ast.expressions import Expression
+from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.return_statement import ReturnStatement
 from luark.compiler.ast.statement import Statement
-from luark.compiler.ast.varargs import Varargs
+from luark.compiler.ast.variable import DotAccess, Lvalue, Variable
 from luark.compiler.compiler_state import CompilerState
+from luark.opcode.closure import Closure
 from luark.opcode.return_opcode import Return
 
 
 @dataclass
-class ParameterList(AstNode, AsList):
+class ParameterList:
     names: list[str]
     has_varargs: bool
-
-    def __init__(self, meta: Meta, params: list):
-        self.meta = meta
-        self.has_varargs = False
-
-        if params:
-            last = params[-1]
-            if isinstance(last, Varargs):
-                self.has_varargs = True
-                self.names = params[:-1]
-            else:
-                self.names = params
-        else:
-            self.names = []
 
 
 @dataclass
@@ -54,10 +39,13 @@ class FunctionDefinition(Expression):
             name = f"<lambda#{state.next_lambda_index()}>"
 
         params = self.body.parameter_list
-        param_count: int = len(params.names)
-        is_variadic: bool = params.has_varargs
+        param_count = 0
+        is_variadic = False
+        if params:
+            param_count = len(params.names)
+            is_variadic = params.has_varargs
 
-        state.begin_proto(name, param_count, is_variadic)
+        proto = state.begin_proto(name, param_count, is_variadic)
         state.begin_block()
 
         statements = self.body.block.statements
@@ -65,15 +53,17 @@ class FunctionDefinition(Expression):
             last = statements[-1]
             for stmt in self.body.block.statements[:-1]:
                 stmt.compile(state)
-            if isinstance(last, ReturnStatement):
-                last.compile(state)
-            else:
+            last.compile(state)
+            if not isinstance(last, ReturnStatement):
                 state.add_opcode(Return(1))
         else:
             state.add_opcode(Return(1))
 
         state.end_block()
         state.end_proto()
+
+        if create_closure:
+            state.add_opcode(Closure(proto))
 
 
 @dataclass
@@ -84,11 +74,47 @@ class FunctionName:
 
 @dataclass
 class FunctionDefinitionStatement(Statement):
-    function_name: FunctionName
-    function_body: FunctionBody
+    name: FunctionName
+    body: FunctionBody
 
     def compile(self, state: CompilerState) -> None:
-        raise NotImplementedError
+        names = self.name.names
+        lvalue: Lvalue
+        if len(names) == 1:
+            lvalue = Variable(self.meta, names[0])
+        else:
+            lvalue = Variable(self.meta, names[0])
+            for name in names[1:]:
+                lvalue = DotAccess(self.meta, lvalue, name)
+
+        params = self.body.parameter_list
+        if not params:
+            param_names = []
+            if self.name.is_method:
+                param_names.append("self")
+            param_list = ParameterList(param_names, False)
+        else:
+            param_names: list[str]
+            if params:
+                if self.name.is_method:
+                    param_names = ["self", *params.names]
+                else:
+                    param_names = params.names
+            else:
+                param_names = []
+            param_list = ParameterList(param_names, params.has_varargs)
+
+        func_def = FunctionDefinition(
+            self.meta,
+            FunctionBody(self.meta, param_list, self.body.block),
+            names[-1]
+        )
+        assignment = AssignmentStatement(
+            self.meta,
+            [lvalue],
+            ExpressionList(self.meta, [func_def])
+        )
+        assignment.compile(state)
 
 
 @dataclass

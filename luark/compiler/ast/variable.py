@@ -9,7 +9,7 @@ from luark.opcode.push import PushConst
 from luark.opcode.table import GetTable, SetTable
 
 
-class Lvalue(ABC):
+class Lvalue(Expression):
     """
     An assignment target.
     """
@@ -24,7 +24,7 @@ class Lvalue(ABC):
 
 
 @dataclass
-class Variable(Expression, Lvalue):
+class Variable(Lvalue):
     """
     A named variable. Can refer to a local variable, a constant value, a local
     from an enclosing function (*upvalue*), or a global variable (a field of
@@ -43,7 +43,7 @@ class Variable(Expression, Lvalue):
 
 
 @dataclass
-class DotAccess(Expression, Lvalue):
+class DotAccess(Lvalue):
     """
     An expression of the form `table.key`. Can be evaluated to produce a result
     or can be assigned to from an assignment statement.
@@ -73,7 +73,7 @@ class DotAccess(Expression, Lvalue):
 
 
 @dataclass
-class TableAccess(Expression, Lvalue):
+class TableAccess(Lvalue):
     """
     An expression of the form `table[expression]`. Can be evaluated to produce
     a result or can be assigned to from an assignment statement.

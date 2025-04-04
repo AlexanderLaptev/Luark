@@ -1,12 +1,13 @@
 from lark import Discard, v_args
 from lark.tree import Meta
 
-from luark.compiler.ast import Block, Chunk, FunctionName
+from luark.compiler.ast import Block, Chunk, FunctionName, ParameterList, Varargs
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
 from luark.compiler.ast.expression_transformer import ExpressionTransformer
 from luark.compiler.ast.local_assignment_statement import AttributedName
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.variable import Variable
+from luark.compiler.exceptions import InternalCompilerError
 
 
 # noinspection PyPep8Naming
@@ -50,6 +51,21 @@ class AstTransformer(ExpressionTransformer):
     @v_args(inline=False)
     def method_name(self, names: list[str]) -> FunctionName:
         return FunctionName(names, is_method=True)
+
+    @v_args(inline=False)
+    def parameter_list(self, children: list) -> ParameterList:
+        names = []
+        has_varargs = False
+        for child in children:
+            if isinstance(child, str):
+                names.append(child)
+            elif isinstance(child, Varargs):
+                if has_varargs:
+                    raise InternalCompilerError("extra varargs in parameter list")
+                has_varargs = True
+            else:
+                raise InternalCompilerError(f"illegal type in parameter list: {type(child)}")
+        return ParameterList(names, has_varargs)
 
     def DECIMAL_INT(self, number: str) -> int:
         return int(number, 10)

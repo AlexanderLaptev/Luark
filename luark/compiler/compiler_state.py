@@ -66,14 +66,19 @@ class CompilerState:
             function_name: str,
             fixed_param_count: int,
             is_variadic: bool,
-    ) -> None:
+    ) -> int:
         proto = _PrototypeState(function_name, fixed_param_count, is_variadic)
+        index = len(self._protos)
         self._protos.append(proto)
         self._stack.append(proto)
         self._current_proto = proto
+        return index
 
     def end_proto(self) -> None:
-        self._current_proto = self._stack.pop()
+        self._stack.pop()
+        if self._stack:
+            self._current_proto = self._stack[-1]
+            self._current_block = self._current_proto.block_stack[-1]
 
     @property
     def program_counter(self) -> int:

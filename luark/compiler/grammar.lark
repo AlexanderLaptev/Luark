@@ -88,7 +88,7 @@ function_call_parameters: "(" [expression_list] ")" | table_constructor | string
 
 function_definition: "function" function_body
 function_body: "(" [parameter_list] ")" block "end"
-parameter_list: ID ("," ID)* ["," varargs] | varargs
+parameter_list: (ID ",")* ID ("," varargs)? | (ID ",")* ID? varargs
 function_definition_statement: "function" function_name function_body
     | "local" "function" ID function_body -> local_function_definition_statement
 function_name: ID ("." ID)*

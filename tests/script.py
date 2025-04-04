@@ -3,8 +3,8 @@ import sys
 from luark.compiler.compiler import Compiler
 from luark.compiler.exceptions import CompilationError
 
-compiler = Compiler(debug="code")
 try:
+    compiler = Compiler(debug="code")
     program = compiler.compile_file("./script.lua")
     pass
 except CompilationError as e:
