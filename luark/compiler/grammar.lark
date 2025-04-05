@@ -94,7 +94,7 @@ function_definition_statement: "function" function_name function_body
 function_name: ID ("." ID)*
     | ID ("." ID)* ":" ID -> method_name
 
-if_statement: "if" expression "then" block else_if* ["else" block] "end"
+if_statement: "if" expression "then" block else_if* ("else" block)? "end"
 else_if: "elseif" expression "then" block
 
 for_loop: "for" ID "=" expression "," expression ["," expression] "do" block "end" -> numeric_for_loop
