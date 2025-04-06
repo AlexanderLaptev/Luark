@@ -1,11 +1,9 @@
 from lark import Discard, v_args
-from lark.tree import Meta
 
-from luark.compiler.ast import Block, Chunk, FunctionName, ParameterList, Varargs
+from luark.compiler.ast import Chunk, FunctionName, ParameterList, Varargs
 from luark.compiler.ast.constants import FalseValue, NilValue, TrueValue
 from luark.compiler.ast.expression_transformer import ExpressionTransformer
 from luark.compiler.ast.local_assignment_statement import AttributedName
-from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.variable import Variable
 from luark.compiler.exceptions import InternalCompilerError
 
@@ -15,10 +13,6 @@ from luark.compiler.exceptions import InternalCompilerError
 class AstTransformer(ExpressionTransformer):
     def start(self, chunk: Chunk):
         return chunk
-
-    @v_args(meta=True, inline=False)
-    def block(self, _: Meta, statements: list[Statement]):
-        return Block(statements)
 
     # noinspection PyShadowingBuiltins
     @v_args(meta=False, inline=False)

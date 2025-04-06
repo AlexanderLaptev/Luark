@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import typing
-from typing import Literal
+from dataclasses import dataclass
+from typing import Literal, TYPE_CHECKING
 
 from lark.tree import Meta
 
@@ -14,16 +14,27 @@ from luark.opcode.upvalue import LoadUpvalue, StoreUpvalue
 from luark.program import Prototype
 from luark.program.program import ConstantPoolType, LocalVariable, LocalVariableStore, Program, Upvalue
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from luark.compiler.ast.expressions import CompileTimeConstant
+
+
+@dataclass
+class _NamedLocation:
+    meta: Meta
+    name: str
+    pc: int
+    block: _BlockState
+    active_locals: int
 
 
 class _BlockState:
     def __init__(self):
+        self.parent: _BlockState | None = None
         self.locals = LocalVariableStore()
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
         self.break_stack: list[list[int]] = []
+        self.labels: dict[str, _NamedLocation] = {}
 
 
 class _PrototypeState:
@@ -46,6 +57,7 @@ class _PrototypeState:
         self.locals = LocalVariableStore()
         self.released_local_indices: set[int] = set()
         self.upvalues: dict[str, Upvalue] = {}
+        self.gotos: list[_NamedLocation] = []
         self.program_counter = 0  # always points after the last opcode
         self.num_locals = 0
 
@@ -78,6 +90,7 @@ class CompilerState:
         return index
 
     def end_proto(self) -> None:
+        self._close_gotos()
         self._stack.pop()
         if self._stack:
             self._current_proto = self._stack[-1]
@@ -89,6 +102,8 @@ class CompilerState:
 
     def begin_block(self) -> None:
         block_state = _BlockState()
+        if self._current_block:
+            block_state.parent = self._current_block
         self._current_proto.block_stack.append(block_state)
         self._current_proto.blocks.append(block_state)
         self._current_block = block_state
@@ -236,7 +251,7 @@ class CompilerState:
                         elif operation == "write":
                             self.add_opcode(StoreUpvalue(index))
                     else:  # local or runtime const
-                        local = self.get_local(name)
+                        local = block.locals.by_name(name)
                         index = local.index
                         if operation == "read":
                             self.add_opcode(LoadLocal(index))
@@ -256,6 +271,61 @@ class CompilerState:
             self.add_opcode(GetTable.INSTANCE)
         elif operation == "write":
             self.add_opcode(SetTable.INSTANCE)
+
+    def add_label(self, meta: Meta, name: str, is_trailing: bool):
+        proto = self._current_proto
+        block = self._current_block
+        pc = proto.program_counter
+
+        num_active = 0
+        bl: _BlockState
+        if is_trailing:
+            bl = block.parent
+        else:
+            bl = block
+        while bl is not None:
+            num_active += len(bl.locals)
+            bl = bl.parent
+
+        label = _NamedLocation(meta, name, pc, block, num_active)
+        if self._lookup_label(label) is not None:
+            raise CompilationError(f"label '{name} is already defined'", meta)
+        block.labels[name] = label
+
+    def add_goto(self, meta: Meta, target_label: str):
+        proto = self._current_proto
+        block = self._current_block
+        pc = proto.program_counter
+
+        num_active = 0
+        bl = block
+        while bl is not None:
+            num_active += len(bl.locals)
+            bl = bl.parent
+
+        goto = _NamedLocation(meta, target_label, pc, block, num_active)
+        proto.gotos.append(goto)
+
+    def _close_gotos(self):
+        # TODO: close upvalues
+        # TODO: allow jumps to end of block (unless it's repeat-until)
+        for goto in self._current_proto.gotos:
+            label = self._lookup_label(goto)
+            if label is None:
+                raise CompilationError(f"label {goto.name} is not visible", goto.meta)
+
+            if label.active_locals > goto.active_locals:
+                raise CompilationError("cannot jump into the scope of a local variable", goto.meta)
+            else:
+                self.set_jump(goto.pc, label.pc)
+
+    def _lookup_label(self, location: _NamedLocation) -> _NamedLocation | None:
+        block = location.block
+        while block is not None:
+            if location.name in block.labels:
+                return block.labels[location.name]
+            block = block.parent
+        return None
 
     def compile(self) -> Program:
         protos: list[Prototype] = []

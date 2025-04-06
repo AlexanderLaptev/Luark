@@ -1,6 +1,7 @@
 import os.path
 import pkgutil
 import sys
+import warnings
 from os import PathLike
 from typing import Literal
 
@@ -68,6 +69,8 @@ class Compiler:
             if e.args and isinstance(e.args[-1], Meta):
                 meta: Meta = e.args[-1]
                 raise CompilationError(f"{file_name}:{meta.line}: {str(*e.args[:-1])}")
+            warnings.warn("compilation error thrown without metadata")
+            raise
         except InternalCompilerError:
             raise
         except VisitError as e:

@@ -9,7 +9,6 @@ from .function_calls import *
 from .function_definitions import *
 from .goto_statement import *
 from .if_statement import *
-from .label import *
 from .local_assignment_statement import *
 from .number import *
 from .repeat_statement import *
