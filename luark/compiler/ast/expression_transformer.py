@@ -10,8 +10,6 @@ from luark.compiler.ast.string import String
 from luark.opcode.binary import BinaryOperation
 
 
-# TODO: lazy evaluation
-
 @v_args(meta=True, inline=True)
 class ExpressionTransformer(Transformer):
     _COMPARISON_LOOKUP = {

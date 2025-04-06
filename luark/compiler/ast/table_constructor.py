@@ -55,7 +55,6 @@ class TableConstructor(Expression, AsList):
                     state.add_opcode(LoadLocal(table_local))
                     state.add_opcode(StoreList(size))
                 elif isinstance(field, Expression):
-                    # TODO: use a single `store_list` for contiguous expressions
                     field.evaluate(state)
                     state.add_opcode(LoadLocal(table_local))
                     state.add_opcode(StoreList(1))

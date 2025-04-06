@@ -307,8 +307,6 @@ class CompilerState:
         proto.gotos.append(goto)
 
     def _close_gotos(self):
-        # TODO: close upvalues
-        # TODO: allow jumps to end of block (unless it's repeat-until)
         for goto in self._current_proto.gotos:
             label = self._lookup_label(goto)
             if label is None:

@@ -1,4 +1,3 @@
-import warnings
 from dataclasses import dataclass
 
 from lark.ast_utils import AsList
@@ -100,7 +99,6 @@ class GenericForLoop(ForLoop):
         self.expression_list.evaluate(state, 4)
         state.add_opcode(PrepareForGeneric(control_index))
 
-        # TODO: check stack value orders
         loop_start_pc = state.program_counter
         state.add_opcode(LoadLocal(state_index))
         state.add_opcode(LoadLocal(control_index))

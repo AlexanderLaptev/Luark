@@ -40,6 +40,7 @@ class CompileTimeConstant(Expression):
         pass
 
 
+# FIXME: fails on numbers (e.g. `local x = -5`)
 @dataclass
 class UnaryExpression(Expression):
     operand: Expression
@@ -74,7 +75,6 @@ class ExpressionList(AstNode, AsList):
         for expression in reversed(self.expressions):
             expression.evaluate(state)
 
-    # TODO: verify order!
     def _adjust(self, state: CompilerState, count: int) -> None:
         """
         Adjusts the expression list statically to the specified length.
