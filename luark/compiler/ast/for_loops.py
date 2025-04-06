@@ -9,6 +9,7 @@ from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.statement import Statement
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import InternalCompilerError
+from luark.opcode.call import Call
 from luark.opcode.local import LoadLocal, MarkTBC, StoreLocal
 from luark.opcode.prepare_for import PrepareForGeneric, PrepareForNumeric
 from luark.opcode.push import PushInt
@@ -104,7 +105,7 @@ class GenericForLoop(ForLoop):
         state.add_opcode(LoadLocal(state_index))
         state.add_opcode(LoadLocal(control_index))
         state.add_opcode(LoadLocal(iterator_index))
-        warnings.warn("function calls not yet implemented")  # TODO!
+        state.add_opcode(Call(3, 2))
 
         for lvalue in reversed(lvalues):
             state.add_opcode(StoreLocal(lvalue.index))

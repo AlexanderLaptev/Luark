@@ -1,7 +1,8 @@
-do
-  goto l1
-  local a = 23
-  ::l1::;;;
-  x = a
-  ::l2::;;
+--[[
+for i = 0, 5, 3  do
+end
+--]]
+
+for i, v in x, y, z, w do
+
 end
