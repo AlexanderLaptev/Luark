@@ -20,7 +20,7 @@ class AssignmentStatement(Statement):
             target.evaluate(state, temporaries)
 
         self.expression_list.evaluate(state, len(self.targets))
-        temporaries = temporaries[::-1]  # ensure they are read in reverse order
+        temporaries.reverse()  # ensure the cached values are read in reverse order
         for target in self.targets:
             target.assign(state, temporaries)
 
