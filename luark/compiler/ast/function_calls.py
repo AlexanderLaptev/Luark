@@ -7,10 +7,11 @@ from luark.compiler.ast.string import String
 from luark.compiler.ast.table_constructor import TableConstructor
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import InternalCompilerError
-from luark.opcode.call import Call, PrepareCall
+from luark.opcode.call import Call
 from luark.opcode.local import LoadLocal, StoreLocal
 from luark.opcode.push import PushConst
 from luark.opcode.table import GetTable
+from luark.opcode.varargs import MarkStack
 
 
 @dataclass
@@ -53,7 +54,7 @@ class FunctionCall(MultiresExpression):
             state.add_opcode(Call(param_count, return_count))
             return
 
-        state.add_opcode(PrepareCall.INSTANCE)
+        state.add_opcode(MarkStack.INSTANCE)
         if self.is_method:
             state.add_opcode(LoadLocal(self_index))
             state.release_locals(self_index)

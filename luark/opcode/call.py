@@ -1,18 +1,5 @@
-from typing import Self
-
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-
-
-class PrepareCall(Opcode):
-    INSTANCE: Self = None
-
-    def __init__(self):
-        assert PrepareCall.INSTANCE is None
-        super().__init__("prepare_call")
-
-
-PrepareCall.INSTANCE = PrepareCall()
 
 
 class Call(Opcode):
