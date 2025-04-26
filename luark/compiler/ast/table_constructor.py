@@ -60,5 +60,7 @@ class TableConstructor(Expression, AsList):
                     state.add_opcode(StoreList(1))
                 else:
                     raise InternalCompilerError(f"illegal type of field: {type(field)}")
+        else:
+            state.add_opcode(LoadLocal(table_local))
 
         state.release_locals(table_local)
