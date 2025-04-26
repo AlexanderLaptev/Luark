@@ -116,6 +116,10 @@ class CompilerState:
             local.end = self.program_counter
 
         for upvalue in self._current_block.upvalues:
+            if upvalue.name == "_ENV":
+                # _ENV should never be closed manually,
+                # the VM will take care of it itself.
+                continue
             self.add_opcode(CloseUpvalue(upvalue.index))
 
         self._current_proto.locals.merge(self._current_block.locals)
