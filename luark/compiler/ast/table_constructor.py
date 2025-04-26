@@ -35,18 +35,22 @@ class TableConstructor(Expression, AsList):
 
         if self.fields:
             last_index = len(self.fields) - 1
-            for i, field in enumerate(self.fields):
+            i = 0
+            while i < len(self.fields):
+                field = self.fields[i]
                 if isinstance(field, ExpressionField):
                     field.value.evaluate(state)
                     state.add_opcode(LoadLocal(table_local))
                     field.key.evaluate(state)
                     state.add_opcode(SetTable.INSTANCE)
+                    i += 1
                 elif isinstance(field, NameField):
                     field.value.evaluate(state)
                     state.add_opcode(LoadLocal(table_local))
                     const_index = state.get_const_index(field.name)
                     state.add_opcode(PushConst(const_index))
                     state.add_opcode(SetTable.INSTANCE)
+                    i += 1
                 elif isinstance(field, MultiresExpression):
                     size = 0 if (i == last_index) else 1
                     if size == 0:
@@ -54,13 +58,26 @@ class TableConstructor(Expression, AsList):
                     field.evaluate(state, size)
                     state.add_opcode(LoadLocal(table_local))
                     state.add_opcode(StoreList(size))
+                    i += 1
                 elif isinstance(field, Expression):
+                    size = 1
                     field.evaluate(state)
+
+                    peek = i + 1
+                    while peek < len(self.fields):
+                        peek_field = self.fields[peek]
+                        if isinstance(peek_field, Expression):
+                            peek_field.evaluate(state)
+                            size += 1
+                            peek += 1
+                        else:
+                            break
+
                     state.add_opcode(LoadLocal(table_local))
-                    state.add_opcode(StoreList(1))
+                    state.add_opcode(StoreList(size))
+                    i += size
                 else:
                     raise InternalCompilerError(f"illegal type of field: {type(field)}")
-        else:
-            state.add_opcode(LoadLocal(table_local))
 
+        state.add_opcode(LoadLocal(table_local))
         state.release_locals(table_local)
