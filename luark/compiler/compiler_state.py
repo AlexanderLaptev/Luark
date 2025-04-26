@@ -219,14 +219,15 @@ class CompilerState:
             return self._current_proto.upvalues[name]
         raise InternalCompilerError(f"could not find upvalue '{name}'")
 
-    def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState]):
+    def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState], block: _BlockState | None):
         stack = stack[::-1]
         bottom = stack[0]
         if name in bottom.upvalues:
             return
 
         bottom_upvalue = Upvalue(len(bottom.upvalues), name, True)
-        bottom.block_stack[-1].upvalues.append(bottom_upvalue)
+        if block is not None:
+            block.upvalues.append(bottom_upvalue)
         bottom.upvalues[name] = bottom_upvalue
         for proto in stack[1:]:
             proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
@@ -249,7 +250,7 @@ class CompilerState:
 
                 if block.locals.has_name(name):
                     if is_upvalue:  # upvalue
-                        self._add_upvalue_chain(name, visited_protos)
+                        self._add_upvalue_chain(name, visited_protos, block)
                         index = self._get_upvalue(name).index
 
                         if operation == "read":
@@ -268,7 +269,7 @@ class CompilerState:
                     return
 
         # global variable
-        self._add_upvalue_chain("_ENV", visited_protos)
+        self._add_upvalue_chain("_ENV", visited_protos, None)
         env_index = self._get_upvalue("_ENV").index
         name_index = self.get_const_index(name)
         self.add_opcode(LoadUpvalue(env_index))
