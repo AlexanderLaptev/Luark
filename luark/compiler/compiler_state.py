@@ -10,7 +10,7 @@ from luark.opcode.jump import Jump
 from luark.opcode.local import LoadLocal, StoreLocal
 from luark.opcode.push import PushConst
 from luark.opcode.table import GetTable, SetTable
-from luark.opcode.upvalue import LoadUpvalue, StoreUpvalue
+from luark.opcode.upvalue import CloseUpvalue, LoadUpvalue, StoreUpvalue
 from luark.program import Prototype
 from luark.program.program import ConstantPoolType, LocalVariable, LocalVariableStore, Program, Upvalue
 
@@ -35,6 +35,7 @@ class _BlockState:
         self.consts: dict[str, CompileTimeConstant] = {}
         self.break_stack: list[list[int]] = []
         self.labels: dict[str, _NamedLocation] = {}
+        self.upvalues: list[Upvalue] = []
 
 
 class _PrototypeState:
@@ -113,6 +114,9 @@ class CompilerState:
         # and are therefore no longer visible
         for local in self._current_block.locals:
             local.end = self.program_counter
+
+        for upvalue in self._current_block.upvalues:
+            self.add_opcode(CloseUpvalue(upvalue.index))
 
         self._current_proto.locals.merge(self._current_block.locals)
 
@@ -221,7 +225,9 @@ class CompilerState:
         if name in bottom.upvalues:
             return
 
-        bottom.upvalues[name] = Upvalue(len(bottom.upvalues), name, True)
+        bottom_upvalue = Upvalue(len(bottom.upvalues), name, True)
+        bottom.block_stack[-1].upvalues.append(bottom_upvalue)
+        bottom.upvalues[name] = bottom_upvalue
         for proto in stack[1:]:
             proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
 
