@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from lark.tree import Meta
+
 from luark.compiler.ast import AstNode, MultiresExpression
 from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.statement import Statement
@@ -79,11 +81,12 @@ class MethodCall(FunctionCall):
 
     def __init__(
             self,
+            meta: Meta,
             primary: Expression,
             method_name: str,
             parameters: FunctionCallParameters
     ):
-        super().__init__(primary, parameters, True)
+        super().__init__(meta, primary, parameters, True)
         self.method_name = method_name
 
     def evaluate(self, state: CompilerState, return_count: int = 1) -> None:
