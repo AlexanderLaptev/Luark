@@ -55,6 +55,10 @@ class ExpressionTransformer(Transformer):
         operation, calculator = self._ARITHMETIC_LOOKUP[sign]
         return self._arithmetic(meta, left, right, calculator, operation)
 
+    def exp_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        operation, calculator = self._ARITHMETIC_LOOKUP["^"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
     def unary_minus(self, meta: Meta, op: Expression):
         if isinstance(op, Number):
             return Number(meta, -op.value)
