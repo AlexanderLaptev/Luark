@@ -5,9 +5,10 @@ from lark.ast_utils import AsList
 
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
-from luark.opcode import Opcode
+from luark.opcode.binary import BinaryOperation
 from luark.opcode.pop import Pop
 from luark.opcode.push import PushNil
+from luark.opcode.unary import UnaryOperation
 
 
 class Expression(ABC, AstNode):
@@ -44,7 +45,7 @@ class CompileTimeConstant(Expression):
 @dataclass
 class UnaryExpression(Expression):
     operand: Expression
-    opcode: Opcode
+    opcode: UnaryOperation
 
     def evaluate(self, state: CompilerState) -> None:
         self.operand.evaluate(state)
@@ -55,7 +56,7 @@ class UnaryExpression(Expression):
 class BinaryExpression(Expression):
     left: Expression
     right: Expression
-    opcode: Opcode
+    opcode: BinaryOperation
 
     def evaluate(self, state: CompilerState) -> None:
         self.left.evaluate(state)

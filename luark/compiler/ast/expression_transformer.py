@@ -3,11 +3,13 @@ from collections.abc import Callable
 from lark import Token, Transformer, v_args
 from lark.tree import Meta
 
+from luark.compiler.ast import UnaryExpression
 from luark.compiler.ast.constants import FalseValue, TrueValue
 from luark.compiler.ast.expressions import BinaryExpression, Expression
 from luark.compiler.ast.number import Number
 from luark.compiler.ast.string import String
 from luark.opcode.binary import BinaryOperation
+from luark.opcode.unary import UnaryOperation
 
 
 @v_args(meta=True, inline=True)
@@ -18,7 +20,7 @@ class ExpressionTransformer(Transformer):
         "<=": (BinaryOperation.LESS_OR_EQUAL, lambda x, y: x <= y),
         ">=": (BinaryOperation.GREATER_OR_EQUAL, lambda x, y: x >= y),
         "==": (BinaryOperation.EQUAL, lambda x, y: x == y),
-        "!=": (BinaryOperation.NOT_EQUAL, lambda x, y: x != y),
+        "~=": (BinaryOperation.NOT_EQUAL, lambda x, y: x != y),
     }
 
     _ARITHMETIC_LOOKUP = {
@@ -52,6 +54,24 @@ class ExpressionTransformer(Transformer):
     def mul_expression(self, meta: Meta, left: Expression, sign: Token, right: Expression) -> Expression:
         operation, calculator = self._ARITHMETIC_LOOKUP[sign]
         return self._arithmetic(meta, left, right, calculator, operation)
+
+    def unary_minus(self, meta: Meta, op: Expression):
+        if isinstance(op, Number):
+            return Number(meta, -op.value)
+        return UnaryExpression(meta, op, UnaryOperation.NEGATE)
+
+    def unary_not(self, meta: Meta, op: Expression):
+        if isinstance(op, TrueValue):
+            return FalseValue(meta)
+        elif isinstance(op, FalseValue):
+            return TrueValue(meta)
+        return UnaryExpression(meta, op, UnaryOperation.NOT)
+
+    def unary_length(self, meta: Meta, _: Token, op: Expression):
+        return UnaryExpression(meta, op, UnaryOperation.LENGTH)
+
+    def unary_bitwise_not(self, meta: Meta, op: Expression):
+        return UnaryExpression(meta, op, UnaryOperation.BITWISE_NOT)
 
     def _comparison(
             self,

@@ -25,7 +25,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
 ?and_expression: comparison_expression
     | and_expression "and" comparison_expression
 ?!comparison_expression: bitwise_or_expression
-    | comparison_expression ("<" | ">" | "<=" | ">=" | "==" | "!=") bitwise_or_expression
+    | comparison_expression ("<" | ">" | "<=" | ">=" | "==" | "~=") bitwise_or_expression
 ?bitwise_or_expression: bitwise_xor_expression
     | bitwise_or_expression "|" bitwise_xor_expression
 ?bitwise_xor_expression: bitwise_and_expression
@@ -44,7 +44,7 @@ _field_list: field (("," | ";") field)* ("," | ";")?
 ?unary_expression: exp_expression
     | "-" unary_expression -> unary_minus
     | "not" unary_expression -> unary_not
-    | "#" unary_expression -> unary_length
+    | /#/ unary_expression -> unary_length
     | "~" unary_expression -> unary_bitwise_not
 ?exp_expression: literal
     | literal "^" unary_expression
