@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 
 from luark.compiler.ast.constants import CompileTimeConstant
@@ -58,6 +58,7 @@ class DotAccess(Lvalue):
             temporaries.append(index)
             self.expression.evaluate(state)
             state.add_opcode(StoreLocal(index))
+            state.release_locals(index)
         else:
             self.expression.evaluate(state)
             index = state.get_const_index(self.name)
@@ -94,6 +95,9 @@ class TableAccess(Lvalue):
                 self.key.evaluate(state)
                 state.add_opcode(StoreLocal(key_index))
                 temporaries.append(key_index)
+                state.release_locals(key_index, 1)
+
+            state.release_locals(table_index)
         else:
             self.table.evaluate(state)
             self.key.evaluate(state)
