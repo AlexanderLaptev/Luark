@@ -1,1 +1,1 @@
-local len = not true
+foo(#abc)

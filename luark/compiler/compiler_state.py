@@ -33,7 +33,6 @@ class _BlockState:
         self.locals = LocalVariableStore()
         self.tbc_locals: list[LocalVariable] = []
         self.consts: dict[str, CompileTimeConstant] = {}
-        self.break_stack: list[list[int]] = []
         self.labels: dict[str, _NamedLocation] = {}
         self.upvalues: list[Upvalue] = []
 
@@ -55,6 +54,7 @@ class _PrototypeState:
         self.opcodes: list[Opcode] = []
         self.blocks: list[_BlockState] = []
         self.block_stack: list[_BlockState] = []
+        self.break_stack: list[list[int]] = []
         self.locals = LocalVariableStore()
         self.released_local_indices: set[int] = set()
         self.upvalues: dict[str, Upvalue] = {}
@@ -131,10 +131,10 @@ class CompilerState:
             self._current_block = None
 
     def begin_loop(self) -> None:
-        self._current_block.break_stack.append([])
+        self._current_proto.break_stack.append([])
 
     def end_loop(self) -> None:
-        breaks = self._current_block.break_stack.pop()
+        breaks = self._current_proto.break_stack.pop()
         for br in breaks:
             self.set_jump(br)
 
@@ -167,11 +167,11 @@ class CompilerState:
         self._current_proto.opcodes[opcode_pc] = Jump(target - opcode_pc)
 
     def add_break(self, meta: Meta):
-        if not self._current_block.break_stack:
+        if not self._current_proto.break_stack:
             raise CompilationError("break statement is not allowed outside of a loop", meta)
         pc = self._current_proto.program_counter
         self.reserve_opcode()
-        self._current_block.break_stack[-1].append(pc)
+        self._current_proto.break_stack[-1].append(pc)
 
     def get_const_index(self, value: ConstantPoolType | str) -> int:
         if isinstance(value, str):
