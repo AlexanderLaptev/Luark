@@ -31,6 +31,11 @@ class ExpressionTransformer(Transformer):
         "//": (BinaryOperation.FLOOR_DIVIDE, lambda x, y: x // y),
         "%": (BinaryOperation.MODULO_DIVIDE, lambda x, y: x % y),
         "^": (BinaryOperation.EXPONENTIATE, lambda x, y: x ** y),
+        "|": (BinaryOperation.BITWISE_OR, lambda x, y: x | y),
+        "~": (BinaryOperation.BITWISE_OR, lambda x, y: x ^ y),
+        "&": (BinaryOperation.BITWISE_OR, lambda x, y: x & y),
+        "<<": (BinaryOperation.BITWISE_OR, lambda x, y: x << y),
+        ">>": (BinaryOperation.BITWISE_OR, lambda x, y: x >> y),
     }
 
     def or_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
@@ -57,6 +62,34 @@ class ExpressionTransformer(Transformer):
 
     def exp_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
         operation, calculator = self._ARITHMETIC_LOOKUP["^"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
+    def bitwise_or_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        operation, calculator = self._ARITHMETIC_LOOKUP["|"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
+    def bitwise_and_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        operation, calculator = self._ARITHMETIC_LOOKUP["&"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
+    def bitwise_xor_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        operation, calculator = self._ARITHMETIC_LOOKUP["~"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
+    def lshift_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        if isinstance(left, Number) and isinstance(right, Number):
+            if isinstance(left.value, int) and isinstance(right.value, int):
+                if right.value < 0:
+                    return Number(meta, left.value >> -right.value)
+        operation, calculator = self._ARITHMETIC_LOOKUP["<<"]
+        return self._arithmetic(meta, left, right, calculator, operation)
+
+    def rshift_expression(self, meta: Meta, left: Expression, right: Expression) -> Expression:
+        if isinstance(left, Number) and isinstance(right, Number):
+            if isinstance(left.value, int) and isinstance(right.value, int):
+                if right.value < 0:
+                    return Number(meta, left.value << -right.value)
+        operation, calculator = self._ARITHMETIC_LOOKUP[">>"]
         return self._arithmetic(meta, left, right, calculator, operation)
 
     def unary_minus(self, meta: Meta, op: Expression):
