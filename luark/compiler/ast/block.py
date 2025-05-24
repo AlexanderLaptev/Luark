@@ -22,6 +22,8 @@ class Block(Statement, AsList):
             else:
                 break
 
+        if end_label_count == 0:
+            return
         label: Label
         for label in self.statements[-end_label_count:]:
             label.is_trailing = True
