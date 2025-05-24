@@ -226,15 +226,17 @@ class CompilerState:
     def _add_upvalue_chain(self, name: str, stack: list[_PrototypeState], block: _BlockState | None):
         stack = stack[::-1]
         bottom = stack[0]
-        if name in bottom.upvalues:
-            return
 
-        bottom_upvalue = Upvalue(len(bottom.upvalues), name, True)
-        if block is not None:
-            block.upvalues.append(bottom_upvalue)
-        bottom.upvalues[name] = bottom_upvalue
+        if name not in bottom.upvalues:
+            bottom_upvalue = Upvalue(len(bottom.upvalues), name, True)
+            bottom.upvalues[name] = bottom_upvalue
+
+            if (block is not None) and (bottom_upvalue not in block.upvalues):
+                block.upvalues.append(bottom_upvalue)
+
         for proto in stack[1:]:
-            proto.upvalues[name] = Upvalue(len(proto.upvalues), name, False)
+            if name not in proto.upvalues:
+                proto.upvalues[name] = Upvalue(len(proto.upvalues), name, name != "_ENV")
 
     def resolve_variable(self, meta: Meta, name: str, operation: Literal["read", "write"]):
         if operation not in ("read", "write"):
