@@ -109,10 +109,10 @@ LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
 
-DECIMAL_INT: /\d+/
-DECIMAL_FLOAT.10: /(?:\d+(?:\.\d*)?|\d*\.\d+)(?:[eE][+-]?\d+)?/
-HEX_INT: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
-HEX_FLOAT: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
+DECIMAL_INT.17: /\d+/
+DECIMAL_FLOAT.18: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
+HEX_INT.19: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
+HEX_FLOAT.20: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
 
 %ignore WS
 %ignore SHEBANG

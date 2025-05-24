@@ -69,7 +69,7 @@ class AstTransformer(ExpressionTransformer):
 
     def HEX_INT(self, number: str) -> int:
         number = number.casefold()
-        left, right = number.split("p")
+        left, *(right) = number.split("p")
         result = int(left, 16)
         if right:
             exponent = int(right, 10)
