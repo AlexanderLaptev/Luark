@@ -109,8 +109,8 @@ LONG_COMMENT.10: /--\[(?P<lc>=*)\[.*?](?P=lc)]/s
 STRING: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/s
 MULTISTRING: /\[(?P<ms>=*)\[.*?](?P=ms)]/s
 
-DECIMAL_INT: /\d+(?:[eE][+-]?\d+)?/
-DECIMAL_FLOAT: /(?:\d+\.\d*|\d*\.\d+)(?:[eE][+-]?\d+)?/
+DECIMAL_INT: /\d+/
+DECIMAL_FLOAT.10: /(?:\d+(?:\.\d*)?|\d*\.\d+)(?:[eE][+-]?\d+)?/
 HEX_INT: /0[xX][\da-fA-F]+(?:[pP][+-]?[\da-fA-F]+)?/
 HEX_FLOAT: /0[xX](?:[\da-fA-F]+\.[\da-fA-F]*|[\da-fA-F]*\.[\da-fA-F]+)(?:[pP][+-]?\d+)?/
 

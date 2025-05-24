@@ -18,7 +18,7 @@ class Number(CompileTimeConstant):
             # Using an exact comparison here since the int must be representable
             # exactly. If there's *any* difference, we should use `push_const` instead.
             if frac == 0:
-                PushFloat(self.value)
+                state.add_opcode(PushFloat(self.value))
             else:
                 const_index = state.get_const_index(self.value)
                 state.add_opcode(PushConst(const_index))

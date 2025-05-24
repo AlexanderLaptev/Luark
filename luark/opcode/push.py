@@ -46,7 +46,7 @@ class PushFloat(Opcode):
 
     @property
     def arg_str(self) -> str:
-        return str(self.value) + ".0"
+        return str(int(self.value))
 
 
 class PushTrue(Opcode):
