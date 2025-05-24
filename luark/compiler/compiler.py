@@ -74,16 +74,16 @@ class Compiler:
         except InternalCompilerError:
             raise
         except VisitError as e:
-            if isinstance(e.orig_exc, CompilationError):
-                line: str = "?"
-                if isinstance(e.obj, Tree):
-                    line = str(e.obj.meta.line)
-                elif isinstance(e.obj, Token):
-                    line = str(e.obj.line)
+            line: str = "?"
+            if isinstance(e.obj, Tree):
+                line = str(e.obj.meta.line)
+            elif isinstance(e.obj, Token):
+                line = str(e.obj.line)
 
+            if isinstance(e.orig_exc, CompilationError):
                 raise CompilationError(f"{file_name}:{line}:", e.orig_exc)
             else:
-                raise InternalCompilerError(e.orig_exc)
+                raise InternalCompilerError(f"{file_name}:{line}:", e.orig_exc)
         except Exception as e:
             raise InternalCompilerError(e)
 

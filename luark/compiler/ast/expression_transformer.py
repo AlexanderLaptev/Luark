@@ -95,6 +95,11 @@ class ExpressionTransformer(Transformer):
             operation: BinaryOperation,
     ) -> Expression:
         if isinstance(left, Number) and isinstance(right, Number):
+            if (operation == BinaryOperation.DIVIDE
+                    or operation == BinaryOperation.FLOOR_DIVIDE
+                    or operation == BinaryOperation.MODULO_DIVIDE):
+                if right.value == 0:
+                    return BinaryExpression(meta, left, right, operation)
             result = calculator(left.value, right.value)
             return Number(meta, result)
         return BinaryExpression(meta, left, right, operation)
