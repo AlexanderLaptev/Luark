@@ -9,8 +9,12 @@ class AnyType:
     pass
 
 @dataclass
-class Number(AnyType):
+class Float(AnyType):
     value: float
+
+@dataclass
+class Integer(AnyType):
+    value: int
 
 @dataclass
 class String(AnyType):
