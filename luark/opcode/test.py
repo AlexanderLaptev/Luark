@@ -1,6 +1,11 @@
+import typing
 from typing import Self
 
 from luark.opcode import Opcode
+
+if typing.TYPE_CHECKING:
+    from luark.vm.luavm import ProgramRunner, PrototypeRunner
+    from luark.vm.types import Boolean, Nil
 
 
 class Test(Opcode):
@@ -10,6 +15,20 @@ class Test(Opcode):
         assert Test.INSTANCE is None
         super().__init__("test")
 
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        value = program_runner.value_stack.pop()
+
+        if value is Nil:
+            prototype_runner.step(1)
+            return
+
+        if value is Boolean:
+            assert isinstance(value, Boolean)
+            if not value.value:
+                prototype_runner.step(1)
+                return
+
+        prototype_runner.step(2)
 
 Test.INSTANCE = Test()
 
@@ -20,6 +39,14 @@ class TestNil(Opcode):
     def __init__(self):
         assert TestNil.INSTANCE is None
         super().__init__("test_nil")
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        value = program_runner.value_stack.pop()
+        if value is Nil:
+            prototype_runner.step(2)
+        else:
+            prototype_runner.step(1)
+
 
 
 TestNil.INSTANCE = TestNil()
