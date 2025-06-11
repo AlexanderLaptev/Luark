@@ -29,6 +29,11 @@ class ProgramRunner:
 
 
 class LuaVM:
-    def __init__(self):
-        self.call_stack = []
-        self.env = {}
+    def __init__(self, program: Program):
+        self.runner: ProgramRunner = ProgramRunner(program=program)
+
+    def loop(self):
+        while len(self.runner.call_stack) > 0:
+            current: PrototypeRunner = self.runner.call_stack[-1]
+            opcode: Opcode = current.prototype.opcodes[current.program_counter]
+            opcode.run(program_runner=self.runner, prototype_runner=current)

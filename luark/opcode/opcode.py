@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import typing
 
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
+
 if typing.TYPE_CHECKING:
     from luark.program import Program, Prototype
 
@@ -18,3 +20,6 @@ class Opcode:
 
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return ""
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        pass
