@@ -1,5 +1,10 @@
+import typing
+
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
+
+if typing.TYPE_CHECKING:
+    from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 
 class Jump(Opcode):
@@ -15,3 +20,6 @@ class Jump(Opcode):
 
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return f"to {pc + self.offset}"
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        prototype_runner.step(self.offset)
