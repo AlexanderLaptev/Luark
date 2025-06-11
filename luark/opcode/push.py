@@ -1,7 +1,11 @@
+import typing
 from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
+if typing.TYPE_CHECKING:
+    from luark.vm.luavm import ProgramRunner, PrototypeRunner
+    from luark.vm.types import Boolean, Nil, Integer, Float, String
 
 
 class PushConst(Opcode):
@@ -21,6 +25,12 @@ class PushConst(Opcode):
             value = str(value)[1:]
         return str(value)
 
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        value: bytes = prototype_runner.prototype.constant_pool[self.index]
+        program_runner.value_stack.append(String(value))
+        prototype_runner.step()
+
+
 
 class PushInt(Opcode):
     value: int
@@ -32,6 +42,10 @@ class PushInt(Opcode):
     @property
     def arg_str(self) -> str:
         return str(self.value)
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.value_stack.append(Integer(self.value))
+        prototype_runner.step()
 
 
 class PushFloat(Opcode):
@@ -48,6 +62,11 @@ class PushFloat(Opcode):
     def arg_str(self) -> str:
         return str(int(self.value))
 
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.value_stack.append(Float(self.value))
+        prototype_runner.step()
+
+
 
 class PushTrue(Opcode):
     INSTANCE: Self = None
@@ -55,6 +74,10 @@ class PushTrue(Opcode):
     def __init__(self):
         assert PushTrue.INSTANCE is None
         super().__init__("push_true")
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.value_stack.append(Boolean(True))
+        prototype_runner.step()
 
 
 PushTrue.INSTANCE = PushTrue()
@@ -67,6 +90,10 @@ class PushFalse(Opcode):
         assert PushFalse.INSTANCE is None
         super().__init__("push_false")
 
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.value_stack.append(Boolean(False))
+        prototype_runner.step()
+
 
 PushFalse.INSTANCE = PushFalse()
 
@@ -77,6 +104,10 @@ class PushNil(Opcode):
     def __init__(self):
         assert PushNil.INSTANCE is None
         super().__init__("push_nil")
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.value_stack.append(Nil())
+        prototype_runner.step()
 
 
 PushNil.INSTANCE = PushNil()
