@@ -18,7 +18,7 @@ class Integer(AnyType):
 
 @dataclass
 class String(AnyType):
-    value: str
+    value: bytes
 
 @dataclass
 class Boolean(AnyType):
