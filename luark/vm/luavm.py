@@ -1,14 +1,20 @@
+import typing
 from dataclasses import dataclass
 
 from luark.opcode import Opcode
-from luark.program import Program, Prototype
-from luark.vm.types import AnyType
+
+if typing.TYPE_CHECKING:
+    from luark.program import Program, Prototype
+    from luark.vm.types import AnyType
 
 
 @dataclass
 class PrototypeRunner:
     prototype: Prototype
     program_counter: int
+
+    def step(self, offest: int = 1):
+        self.program_counter += offest
 
 
 class ProgramRunner:
