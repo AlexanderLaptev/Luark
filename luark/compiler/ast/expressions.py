@@ -6,7 +6,6 @@ from lark.ast_utils import AsList
 from luark.compiler.ast.ast_node import AstNode
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode.binary import BinaryOperation
-from luark.opcode.pop import Pop
 from luark.opcode.push import PushNil
 from luark.opcode.unary import UnaryOperation
 
@@ -68,63 +67,48 @@ class BinaryExpression(Expression):
 class ExpressionList(AstNode, AsList):
     expressions: list[Expression]
 
-    def evaluate(self, state: CompilerState, adjust_to_count: int = None) -> None:
-        if adjust_to_count:
-            self._adjust(state, adjust_to_count)
-            return
-
-        for expression in reversed(self.expressions):
-            expression.evaluate(state)
-
-    def _adjust(self, state: CompilerState, count: int) -> None:
+    def evaluate(self, state: CompilerState, adjust_to: int | None = None) -> None:
         """
-        Adjusts the expression list statically to the specified length.
-        Static adjustments are performed by:
+        Adjusts the expression list statically to the specified length. Static
+        adjustments are performed by:
         1. Assignments.
         2. Local assignments.
         3. Generic for loops.
+        4. Arguments of a function call.
 
-        Other adjustments are done dynamically by the VM at runtime.
-        If the last expression is multires, the
-        adjustment must be performed dynamically.
-        We still need to specify how many values
-        we expect to receive in the end.
+        Other adjustments are done dynamically by the VM at runtime. If the last
+        expression is multires, the adjustment must be performed dynamically.
+        We still need to specify how many values we expect to receive in the end.
         """
+        if not self.expressions:
+            return
 
-        assert count != 0, "cannot statically adjust to 0 values"
-
-        difference = count - len(self.expressions)
-        if difference > 0:  # append nils
-            if self.expressions:
-                if isinstance(self.expressions[-1], MultiresExpression):
-                    # noinspection PyTypeChecker
-                    expr: MultiresExpression = self.expressions[-1]
-                    expr.evaluate(state, 2 + difference)
-                else:
-                    for _ in range(difference):
-                        state.add_opcode(PushNil.INSTANCE)
-                    self.expressions[-1].evaluate(state)
-            else:
-                for _ in range(difference):
-                    state.add_opcode(PushNil.INSTANCE)
-
-            for expr in reversed(self.expressions[:-1]):
-                expr.evaluate(state)
-        else:
-            # Even if there are more values then expected,
-            # we still have to evaluate them all and simply
-            # discard them later.
-            last: Expression = self.expressions[-1]
+        last = self.expressions[-1]
+        if adjust_to is None:
             if isinstance(last, MultiresExpression):
-                # Tell the VM to discard all values if
-                # we're already beyond the list of names.
-                return_count = 2 if (difference == 0) else 1
-                last.evaluate(state, return_count)
+                last.evaluate(state, return_count=0)
+            for expression in reversed(self.expressions):
+                expression.evaluate(state)
+        else:
+            assert adjust_to > 0
+            if isinstance(last, MultiresExpression):
+                difference = adjust_to - len(self.expressions)
+                if difference >= 0:
+                    difference = adjust_to - len(self.expressions) + 2
+                    last.evaluate(state, return_count=difference)
+                    for expression in reversed(self.expressions[:-1]):
+                        expression.evaluate(state)
+                else:
+                    for expression in reversed(self.expressions[:adjust_to]):
+                        expression.evaluate(state)
             else:
-                last.evaluate(state)
+                nil_count = max(0, adjust_to - len(self.expressions))
+                for _ in range(nil_count):
+                    state.add_opcode(PushNil.INSTANCE)
+                until = min(adjust_to, len(self.expressions))
+                for expression in reversed(self.expressions[:until]):
+                    expression.evaluate(state)
 
-            for expr in reversed(self.expressions[:-1]):
-                expr.evaluate(state)
-
-            for _ in range(-difference):  # diff is <= 0 here, so negate it
-                state.add_opcode(Pop.INSTANCE)  # discard extra values
+    @property
+    def is_multires(self) -> bool:
+        return self.expressions and isinstance(self.expressions[-1], MultiresExpression)

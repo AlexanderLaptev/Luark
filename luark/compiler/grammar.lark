@@ -82,9 +82,7 @@ local_assignment_statement: "local" attributed_name_list ["=" expression_list]
 attributed_name_list: attributed_name ("," attributed_name)*
 attributed_name: ID ["<" ID ">"]
 
-function_call: primary function_call_parameters
-    | primary ":" ID function_call_parameters -> method_call
-function_call_parameters: "(" [expression_list] ")" | table_constructor | string
+function_call: primary [":" ID] "(" [expression_list | string | table_constructor] ")"
 
 function_definition: "function" function_body
 function_body: "(" [parameter_list] ")" block "end"

@@ -1,100 +1,58 @@
 from dataclasses import dataclass
+from typing import TypeAlias
 
-from lark.tree import Meta
-
-from luark.compiler.ast import AstNode, MultiresExpression
+from luark.compiler.ast import MultiresExpression
 from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.statement import Statement
 from luark.compiler.ast.string import String
 from luark.compiler.ast.table_constructor import TableConstructor
 from luark.compiler.compiler_state import CompilerState
-from luark.compiler.exceptions import InternalCompilerError
 from luark.opcode.call import Call
 from luark.opcode.local import LoadLocal, StoreLocal
-from luark.opcode.push import PushConst
-from luark.opcode.table import GetTable
 from luark.opcode.varargs import MarkStack
 
-
-@dataclass
-class FunctionCallParameters(AstNode):
-    parameters: ExpressionList | TableConstructor | String | None = None
+CallParameters: TypeAlias = ExpressionList | TableConstructor | String | None
 
 
 @dataclass
 class FunctionCall(MultiresExpression):
     primary: Expression
-    parameters: FunctionCallParameters
-    is_method: bool = False
+    method_name: str | None
+    parameters: CallParameters
 
     def evaluate(self, state: CompilerState, return_count: int = 2) -> None:
+        self_index: int | None
+        param_count = 0
+
+        self_index = state.add_temporaries(1)
         self.primary.evaluate(state)
-        self._evaluate(state, return_count)
-
-    def _evaluate(self, state: CompilerState, return_count: int) -> None:
-        self_index: int | None = None
-        if self.is_method:
-            self_index = state.add_temporaries(1)
-            self.primary.evaluate(state)
-            state.add_opcode(StoreLocal(self_index))
-
-        params = self.parameters.parameters
-        expressions = []
-        if params:
-            if isinstance(params, TableConstructor | String):
-                expressions.append(params)
-            elif isinstance(params, ExpressionList):
-                expressions = params.expressions.copy()
-            else:
-                raise InternalCompilerError(f"illegal func params type: {type(params)}")
-
-        if not expressions:
-            param_count = 1
-            if self.is_method:
-                state.add_opcode(LoadLocal(self_index))
-                param_count = 2
-            state.add_opcode(Call(param_count, return_count))
-            return
+        state.add_opcode(StoreLocal(self_index))
 
         state.add_opcode(MarkStack.INSTANCE)
-        if self.is_method:
+        if self.method_name is not None:
             state.add_opcode(LoadLocal(self_index))
-            state.release_locals(self_index)
-        for expr in expressions[:-1]:
-            expr.evaluate(state)
+            param_count += 1
 
-        last = expressions[-1]
-        param_count: int
-        if isinstance(last, MultiresExpression):
-            last.evaluate(state, 0)
-            param_count = 0  # unknown count
+        if (isinstance(self.parameters, TableConstructor)
+                or isinstance(self.parameters, String)):
+            self.parameters.evaluate(state)
+            param_count += 1
         else:
-            last.evaluate(state)
-            param_count = 1 + len(expressions)
-            if self.is_method:
-                param_count += 1
+            params = self.parameters
+            if params is None:
+                params = ExpressionList(self.meta, [])
+
+            params.evaluate(state, adjust_to=None)
+            if params.is_multires:
+                param_count = 0
+            else:
+                param_count += len(params.expressions) + 1
+
+        state.add_opcode(LoadLocal(self_index))
         state.add_opcode(Call(param_count, return_count))
 
-
-class MethodCall(FunctionCall):
-    method_name: str
-
-    def __init__(
-            self,
-            meta: Meta,
-            primary: Expression,
-            method_name: str,
-            parameters: FunctionCallParameters
-    ):
-        super().__init__(meta, primary, parameters, True)
-        self.method_name = method_name
-
-    def evaluate(self, state: CompilerState, return_count: int = 1) -> None:
-        self.primary.evaluate(state)
-        const_index = state.get_const_index(self.method_name)
-        state.add_opcode(PushConst(const_index))
-        state.add_opcode(GetTable.INSTANCE)
-        super()._evaluate(state, return_count)
+        if self_index is not None:
+            state.release_locals(self_index)
 
 
 @dataclass
