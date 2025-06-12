@@ -4,7 +4,7 @@ from luark.compiler.compiler import Compiler
 from luark.compiler.exceptions import CompilationError
 
 try:
-    compiler = Compiler(debug="all")
+    compiler = Compiler(debug="code")
     # program = compiler.compile_file("./lua-5.4.7-tests/closure.lua")
     program = compiler.compile_file("./script.lua")
     pass

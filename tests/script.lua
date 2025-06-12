@@ -1,9 +1,7 @@
--- fooA()
--- fooB(1)
--- fooC(1, 2)
--- fooD(1, ...)
--- fooE(1, ..., ..., 3)
--- fooF(1, (...))
--- fooG(1, bar())
--- fooH(1, bar(), 2)
-fooI(1, (bar()))
+-- function foo() return end
+-- function foo() return 1 end
+-- function foo() return 1, 2, 3 end
+-- function foo() return 1, 2, ... end
+-- function foo() return 1, 2, (...) end
+-- function foo() return 1, 2, ...,  3 end
+function foo() return 1, 2, bar() end
