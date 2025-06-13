@@ -33,19 +33,27 @@ class UnaryOperation(Opcode):
         value = program_runner.value_stack.pop()
         match self.operation:
             case 0:  # negate
+                if value is not Integer | Float:
+                    raise TypeException(prototype_runner)
                 assert isinstance(value, Integer | Float)
                 result = self._negate(value)
             case 1:  # not
+                if value is not Boolean:
+                    raise TypeException(prototype_runner)
                 assert isinstance(value, Boolean)
                 result = self._not(value)
             case 2:  # length
+                if value is not String | Table:
+                    raise TypeException(prototype_runner)
                 assert isinstance(value, String | Table)
                 result = self._length(value)
             case 3:  # bwnot
+                if value is not Integer:
+                    raise TypeException(prototype_runner)
                 assert isinstance(value, Integer)
                 result = self._bitwise_not(value)
             case _:
-                raise UnsupportedOperation()
+                raise UnsupportedOperation(prototype_runner)
         program_runner.value_stack.append(result)
         prototype_runner.step()
 
