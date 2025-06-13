@@ -104,12 +104,11 @@ class TableAccess(Lvalue):
             state.add_opcode(GetTable.INSTANCE)
 
     def assign(self, state: CompilerState, temporaries: list):
+        table_index = temporaries.pop()
+        state.add_opcode(LoadLocal(table_index))
         if isinstance(self.key, CompileTimeConstant):
             self.key.evaluate(state)
         else:
             key_index = temporaries.pop()
             state.add_opcode(LoadLocal(key_index))
-
-        table_index = temporaries.pop()
-        state.add_opcode(LoadLocal(table_index))
         state.add_opcode(SetTable.INSTANCE)

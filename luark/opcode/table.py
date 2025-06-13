@@ -1,10 +1,11 @@
+import warnings
 from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
 from luark.vm.exception import TypeException
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Table
+from luark.vm.types import AnyType, Integer, Table
 
 
 class CreateTable(Opcode):
@@ -82,3 +83,16 @@ class StoreList(Opcode):
 
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return "all" if (self.count == 0) else str(self.count)
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        warnings.warn("unsupported operation, reverting to table logic")
+        prototype_runner.step()
+
+        # noinspection PyTypeChecker
+        table: Table = program_runner.value_stack.pop()
+
+        i = self.count
+        while i > 0:
+            value: AnyType = program_runner.value_stack.pop()
+            table.set(Integer(i), value)
+            i -= 1

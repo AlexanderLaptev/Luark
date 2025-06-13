@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from luark.program import Prototype
 
 if typing.TYPE_CHECKING:
-    from luark.vm.exception import NilPointerException
+    pass
 
 
 class AnyType:
@@ -56,7 +56,6 @@ class Nil(AnyType):
 
 @dataclass(frozen=False)
 class Table(AnyType):
-
     def __init__(self):
         self.table: dict[AnyType, AnyType] = {}
 
@@ -68,11 +67,12 @@ class Table(AnyType):
         return len(self.table)
 
     def get(self, key: AnyType) -> AnyType:
-        assert_not_nil(key)
-        return self.table[key]
+        if key in self.table:
+            return self.table[key]
+        else:
+            return Nil()
 
     def set(self, key: AnyType, value: AnyType):
-        assert_not_nil(key)
         self.table[key] = value
         return
 
@@ -88,8 +88,3 @@ class NativeFunction(AnyType):
 
     def __str__(self):
         return self.function.__name__
-
-
-def assert_not_nil(value: AnyType):
-    if isinstance(value, Nil):
-        raise NilPointerException()

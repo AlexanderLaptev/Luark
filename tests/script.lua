@@ -1,8 +1,2 @@
-local function foo(a, b, ...)
-    x = a
-    y = b * ...
-end
-
-foo(1, 2, 3, 4, 5)
-print(x)
-print(y)
+a = {"test", 1, 2, hello = "abc"}
+print(a.hello)
