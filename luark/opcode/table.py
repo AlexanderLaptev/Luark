@@ -31,8 +31,8 @@ class GetTable(Opcode):
         super().__init__("get_table")
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        table = program_runner.value_stack.pop()
         key = program_runner.value_stack.pop()
+        table = program_runner.value_stack.pop()
 
         if not isinstance(table, Table):
             raise TypeException(prototype_runner, message="Not a table")
@@ -54,9 +54,9 @@ class SetTable(Opcode):
         super().__init__("set_table")
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        value = program_runner.value_stack.pop()
-        table = program_runner.value_stack.pop()
         key = program_runner.value_stack.pop()
+        table = program_runner.value_stack.pop()
+        value = program_runner.value_stack.pop()
 
         if not isinstance(table, Table):
             raise TypeException(prototype_runner, message="Not a table")

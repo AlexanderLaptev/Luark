@@ -41,6 +41,7 @@ class LuaVM:
         from luark.vm.library import Library
         self.runner: ProgramRunner = ProgramRunner(program=program)
         self.library: Library = library
+        self.set_up_env()
 
     def set_up_env(self):
         if self.library is None: return

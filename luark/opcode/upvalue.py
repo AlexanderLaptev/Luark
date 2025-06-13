@@ -29,6 +29,7 @@ class LoadUpvalue(UpvalueOpcode):
         env = program_runner.env
         value: AnyType = env.get(self.index)
         program_runner.value_stack.append(value)
+        prototype_runner.step()
 
 
 class StoreUpvalue(UpvalueOpcode):

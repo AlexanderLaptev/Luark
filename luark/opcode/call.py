@@ -28,6 +28,7 @@ class Call(Opcode):
         if isinstance(function, Function):
             assert isinstance(function, Function)
             program_runner.push_prototype(function.prototype)
+            prototype_runner.step()
             return
 
         if isinstance(function, NativeFunction):

@@ -11,7 +11,6 @@ if typing.TYPE_CHECKING:
 T = TypeVar('T')
 
 
-@dataclass(frozen=True)
 class AnyType:
     pass
 
@@ -58,12 +57,11 @@ class Nil(AnyType):
     def __str__(self):
         return "nil"
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class Table(AnyType):
-    table: dict[AnyType, AnyType]  # todo: maybe change to something better
 
-    # def __init__(self):
-        # self.table = {}
+    def __init__(self):
+        self.table: dict[AnyType, AnyType] = {}
 
     def __str__(self):
         return "{}" + ", ".join([f"{str(key)}: {str(value)}" for key, value in self.table.items()]) + "}"

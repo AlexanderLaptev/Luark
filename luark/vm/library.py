@@ -6,11 +6,10 @@ from luark.vm.types import Table, String, NativeFunction
 class Library:
 
     def __init__(self):
-        self._function_table: Table = Table({})
+        self._function_table: Table = Table()
 
     def register(self, name: str = None):
-        def add_function(func: Callable[..., None]) -> Callable[
-            ..., None]:
+        def add_function(func: Callable[..., None]) -> Callable[..., None]:
             function_name: bytes = name.encode('utf-8', errors='replace') if name is not None else func.__name__
             self._function_table.set(String(function_name), NativeFunction(func))
             return func
