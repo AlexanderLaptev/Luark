@@ -4,41 +4,50 @@ import math
 import typing
 from typing import Callable
 
+from luark.vm.exception import DefaultError, TypeException
+from luark.vm.types import AnyType, Boolean, Float, Function, Integer, NativeFunction, Nil, String, Table
+
 if typing.TYPE_CHECKING:
     from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.exception import TypeException, DefaultError
-from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean, Integer, Float, Function
 
 
 class Library:
     def __init__(self):
-        self._function_table: Table = Table()
+        self._table: Table = Table()
 
     def register(self, name: str = None):
         def add_function(func: Callable[..., None]) -> Callable[..., None]:
-            function_name: bytes = name.encode('utf-8', errors='replace') if name is not None else func.__name__
-            self._function_table.set(String(function_name), NativeFunction(func))
+            parts = name.split(".")
+            assert len(parts) <= 2, "nesting >1 level deep is not supported"
+
+            if len(parts) == 1:
+                func_name = String(parts[0].encode("utf-8"))
+                self._table.set(func_name, NativeFunction(func))
+            elif len(parts) == 2:
+                table_name = String(parts[0].encode("utf-8"))
+                func_name = String(parts[1].encode("utf-8"))
+
+                nested_table = self._table.get(table_name)
+                if isinstance(nested_table, Nil):
+                    nested_table = Table()
+                    self._table.set(table_name, nested_table)
+
+                nested_table.set(func_name, NativeFunction(func))
+            else:
+                raise Exception("nesting >1 levels deep is not supported")
+
             return func
 
         return add_function
 
     def get_table(self) -> Table:
-        return self._function_table
+        return self._table
 
 
 library = Library()
 
-""" 
-Это пример созданной библиотеки нативных функций. объект library используется в script.py для создания тестов.
-Каждая функция должна обладать аргументами типа [ProgramRunner, PrototypeRunner] и ничего не возвращать
-Взаимодействие с данными внутри программы осуществляется через взаимодействие со стеком значений `pr.value_stack.pop()`
-Доступные типы, используемые в стеке значений описаны в vm/types.py
 
-Виртуальная машина после завершения функции автоматически инкрементирует счетчик команд (PrototypeRunner.program_counter)
-"""
-
-
-@library.register('print')  # name in Lua code
+@library.register("print")
 def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     count = len(program_runner.value_stack) - program_runner.peek_mark()
     for value in reversed(program_runner.value_stack[-count:]):
@@ -48,7 +57,7 @@ def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRun
             print(str(value))
 
 
-@library.register('type')
+@library.register("type")
 def type_function(program_runner, prototype_runner) -> None:
     value: AnyType = program_runner.value_stack.pop()
     type_name: str
@@ -72,7 +81,7 @@ def type_function(program_runner, prototype_runner) -> None:
     program_runner.value_stack.append(String(type_name.encode('utf-8', errors='replace')))
 
 
-@library.register('error')
+@library.register("error")
 def error_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     message: AnyType = program_runner.value_stack.pop()
     error_message: str
@@ -91,7 +100,7 @@ def _math_unary_operation(program_runner, prototype_runner, math_function, funct
     if not isinstance(arg_luark, (Integer, Float)):
         raise TypeException(
             prototype_runner,
-            f"bad argument to '{function_name}' (number expected, got {type(arg_luark).__name__})"
+            f"bad argument for '{function_name}' (number expected, got {type(arg_luark).__name__})"
         )
 
     arg: float = float(arg_luark.value)
@@ -100,28 +109,28 @@ def _math_unary_operation(program_runner, prototype_runner, math_function, funct
         if abs(result_py) < epsilon:
             result_py = 0.
     except ValueError as e:
-        raise DefaultError(f"bad argument to '{function_name}' ({str(e)})")
+        raise DefaultError(f"bad argument for '{function_name}' ({str(e)})")
     except ZeroDivisionError as e:
-        raise DefaultError(f"bad argument to '{function_name}' (division by zero: {str(e)})")
+        raise DefaultError(f"bad argument for '{function_name}' (division by zero: {str(e)})")
     program_runner.value_stack.append(Float(result_py))
 
 
-@library.register('sin')
+@library.register("math.sin")
 def sin_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.sin, 'sin')
 
 
-@library.register('cos')
+@library.register("math.cos")
 def cos_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.cos, 'cos')
 
 
-@library.register('tan')
+@library.register("math.tan")
 def tan_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.tan, 'tan')
 
 
-@library.register('cot')
+@library.register("math.cot")
 def cot_function(program_runner, prototype_runner) -> None:
     def cot_impl(x):
         return 1.0 / math.tan(x)
@@ -129,47 +138,47 @@ def cot_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, cot_impl, 'cot')
 
 
-@library.register('ceil')
+@library.register("math.ceil")
 def ceil_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.ceil, 'ceil')
 
 
-@library.register('floor')
+@library.register("math.floor")
 def floor_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.floor, 'floor')
 
 
-@library.register('abs')
+@library.register("math.abs")
 def abs_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.fabs, 'abs')
 
 
-@library.register('sqrt')
+@library.register("math.sqrt")
 def sqrt_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.sqrt, 'sqrt')
 
 
-@library.register('exp')
+@library.register("math.exp")
 def exp_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.exp, 'exp')
 
 
-@library.register('log')
+@library.register("math.log")
 def log_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.log, 'log')
 
 
-@library.register('deg')
+@library.register("math.deg")
 def deg_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.degrees, 'deg')
 
 
-@library.register('rad')
+@library.register("math.rad")
 def rad_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.radians, 'rad')
 
 
-@library.register('find')
+@library.register("string.find")
 def find_function(program_runner, prototype_runner) -> None:
     input_str: AnyType = program_runner.value_stack.pop()
     input_substr: AnyType = program_runner.value_stack.pop()
@@ -189,7 +198,7 @@ def find_function(program_runner, prototype_runner) -> None:
         program_runner.value_stack.append(Integer(index_py + 1))
 
 
-@library.register('lower')
+@library.register("string.lower")
 def lower_function(program_runner, prototype_runner) -> None:
     input_str: AnyType = program_runner.value_stack.pop()
 
@@ -200,7 +209,7 @@ def lower_function(program_runner, prototype_runner) -> None:
     program_runner.value_stack.append(String(str_py.lower().encode('utf-8')))
 
 
-@library.register('upper')
+@library.register("string.upper")
 def lower_function(program_runner, prototype_runner) -> None:
     input_str: AnyType = program_runner.value_stack.pop()
 
@@ -211,7 +220,7 @@ def lower_function(program_runner, prototype_runner) -> None:
     program_runner.value_stack.append(String(str_py.upper().encode('utf-8')))
 
 
-@library.register('substring')
+@library.register("string.sub")
 def substring_function(program_runner, prototype_runner) -> None:
     input_str: AnyType = program_runner.value_stack.pop()
     from_idx: AnyType = program_runner.value_stack.pop()
@@ -227,7 +236,7 @@ def substring_function(program_runner, prototype_runner) -> None:
     from_idx: Integer
     to_idx: Integer
 
-    str_py: str = input_str.value.decode('utf-8', errors='replace')
+    str_py: str = input_str.value.decode("utf-8", errors='replace')
     str_len: int = len(str_py)
     from_idx_py: int = from_idx.value
     to_idx_py: int = to_idx.value
