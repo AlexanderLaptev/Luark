@@ -60,13 +60,14 @@ class UnaryOperation(Opcode):
 
     @staticmethod
     def _negate(value: Integer | Float):
-        value.value = -value.value
-        return value
+        if value is Integer:
+            return Integer(-value.value)
+        if value is Float:
+            return Float(-value.value)
 
     @staticmethod
     def _not(value: Boolean):
-        value.value = not value.value
-        return value
+        return Boolean(not value.value)
 
     @staticmethod
     def _length(value: String | Table):
@@ -74,8 +75,7 @@ class UnaryOperation(Opcode):
 
     @staticmethod
     def _bitwise_not(value: Integer):
-        value.value = ~value.value
-        return value
+        return Integer(~ value.value)
 
 
 UnaryOperation.NEGATE = UnaryOperation(0, "negate")
