@@ -3,5 +3,8 @@ class NilPointerException(RuntimeError):
     pass
 
 
-class TypeException(RuntimeError):
-    """ A runtime error when types  """
+# class TypeException(RuntimeError):
+#     """ A runtime error that when types dont match"""
+
+class UnsupportedOperation(RuntimeError):
+    """ A runtime error when vm gets unsupported operation from compiler"""

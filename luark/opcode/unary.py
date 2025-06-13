@@ -2,9 +2,9 @@ from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-from luark.vm.exception import TypeException
+from luark.vm.exception import TypeException, UnsupportedOperation
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Integer, Float, Boolean, String, Table
+from luark.vm.types import Integer, Float, Boolean, String, Table, AnyType
 
 
 class UnaryOperation(Opcode):
@@ -29,51 +29,46 @@ class UnaryOperation(Opcode):
         return self.operation_name
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        result: AnyType
         value = program_runner.value_stack.pop()
         match self.operation:
             case 0:  # negate
-                if not (value is Integer or value is Float):
-                    raise TypeException()
                 assert isinstance(value, Integer | Float)
-                self._negate(value, program_runner, prototype_runner)
+                result = self._negate(value)
             case 1:  # not
-                if not (value is Boolean):
-                    raise TypeException()
                 assert isinstance(value, Boolean)
-                self._not(value, program_runner, prototype_runner)
+                result = self._not(value)
             case 2:  # length
-                if not (value is String or value is Table):
-                    raise TypeException()
                 assert isinstance(value, String | Table)
-                self._length(value, program_runner, prototype_runner)
+                result = self._length(value)
             case 3:  # bwnot
-                if not (value is Integer):
-                    raise TypeException()
                 assert isinstance(value, Integer)
-                self._bitwise_not(value, program_runner, prototype_runner)
+                result = self._bitwise_not(value)
+            case _:
+                raise UnsupportedOperation()
+        program_runner.value_stack.append(result)
+        prototype_runner.step()
+
 
     @staticmethod
-    def _negate(value: Integer | Float, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+    def _negate(value: Integer | Float):
         value.value = -value.value
-        program_runner.value_stack.append(value)
-        prototype_runner.step()
+        return value
 
     @staticmethod
-    def _not(value: Boolean, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+    def _not(value: Boolean):
         value.value = not value.value
-        program_runner.value_stack.append(value)
-        prototype_runner.step()
+        return value
 
     @staticmethod
-    def _length(value: String | Table, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        program_runner.value_stack.append(Integer(value.length))
-        prototype_runner.step()
+    def _length(value: String | Table):
+        return Integer(value.length)
 
     @staticmethod
-    def _bitwise_not(value: Integer, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+    def _bitwise_not(value: Integer):
         value.value = ~value.value
-        program_runner.value_stack.append(value)
-        prototype_runner.step()
+        return value
+
 
 UnaryOperation.NEGATE = UnaryOperation(0, "negate")
 UnaryOperation.NOT = UnaryOperation(1, "not")
