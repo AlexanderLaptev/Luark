@@ -1,9 +1,11 @@
+import typing
 from dataclasses import dataclass
 
 from typing_extensions import TypeVar
 
 from luark.program import Prototype
-from luark.vm.exception import NilPointerException
+if typing.TYPE_CHECKING:
+    from luark.vm.exception import NilPointerException
 
 T = TypeVar('T')
 

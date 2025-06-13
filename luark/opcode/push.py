@@ -3,9 +3,10 @@ from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-if typing.TYPE_CHECKING:
-    from luark.vm.luavm import ProgramRunner, PrototypeRunner
-    from luark.vm.types import Boolean, Nil, Integer, Float, String
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
+from luark.vm.types import Boolean, Nil, Integer, Float, String
+# if typing.TYPE_CHECKING:
+#     pass
 
 
 class PushConst(Opcode):

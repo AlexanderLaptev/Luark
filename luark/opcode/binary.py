@@ -1,4 +1,3 @@
-import math
 from typing import Self
 
 from luark.opcode import Opcode

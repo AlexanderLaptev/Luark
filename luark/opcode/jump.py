@@ -1,10 +1,6 @@
-import typing
-
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-
-if typing.TYPE_CHECKING:
-    from luark.vm.luavm import ProgramRunner, PrototypeRunner
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 
 class Jump(Opcode):

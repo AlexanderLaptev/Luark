@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import typing
 
-from luark.vm.luavm import ProgramRunner, PrototypeRunner
-
 if typing.TYPE_CHECKING:
     from luark.program import Program, Prototype
+    from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 
 class Opcode:
@@ -22,4 +21,5 @@ class Opcode:
         return ""
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        pass
+        from luark.vm.exception import UnsupportedOperation
+        raise UnsupportedOperation(prototype_runner)

@@ -2,9 +2,9 @@ import typing
 from typing import Self
 
 from luark.opcode import Opcode
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 if typing.TYPE_CHECKING:
-    from luark.vm.luavm import ProgramRunner, PrototypeRunner
     from luark.vm.types import Boolean, Nil
 
 

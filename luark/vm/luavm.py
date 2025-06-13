@@ -1,11 +1,8 @@
 import typing
 from dataclasses import dataclass
 
-from luark.opcode import Opcode
-
-if typing.TYPE_CHECKING:
-    from luark.program import Program, Prototype
-    from luark.vm.types import AnyType
+from luark.program import Program, Prototype
+from luark.vm.types import AnyType
 
 
 @dataclass
@@ -44,5 +41,5 @@ class LuaVM:
     def loop(self):
         while len(self.runner.call_stack) > 0:
             current: PrototypeRunner = self.runner.call_stack[-1]
-            opcode: Opcode = current.prototype.opcodes[current.program_counter]
+            opcode = current.prototype.opcodes[current.program_counter]
             opcode.run(program_runner=self.runner, prototype_runner=current)
