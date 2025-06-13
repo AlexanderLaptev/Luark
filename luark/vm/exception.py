@@ -1,4 +1,6 @@
-from luark.vm.luavm import PrototypeRunner
+import typing
+if typing.TYPE_CHECKING:
+    from luark.vm.luavm import PrototypeRunner
 
 
 class BaseRuntimeException(RuntimeError):
@@ -11,7 +13,7 @@ class BaseRuntimeException(RuntimeError):
 class NilPointerException(BaseRuntimeException):
     """A runtime error on access data by nil"""
 
-    def __init__(self, prototype_runner: PrototypeRunner = None, message: str = "Cannot access to data by nil"):
+    def __init__(self, prototype_runner: 'PrototypeRunner' = None, message: str = "Cannot access to data by nil"):
         super().__init__(
             message,
             prototype_runner.prototype.function_name if prototype_runner is not None else "",
@@ -21,13 +23,13 @@ class NilPointerException(BaseRuntimeException):
 class TypeException(BaseRuntimeException):
     """ A runtime error that when types dont match"""
 
-    def __init__(self, prototype_runner: PrototypeRunner, message: str = "Types doesnt match"):
+    def __init__(self, prototype_runner: 'PrototypeRunner', message: str = "Types doesnt match"):
         super().__init__(message, prototype_runner.prototype.function_name, prototype_runner.program_counter)
 
 
 class UnsupportedOperation(BaseRuntimeException):
     """ A runtime error when vm gets unsupported operation from compiler"""
 
-    def __init__(self, prototype_runner: PrototypeRunner,
+    def __init__(self, prototype_runner: 'PrototypeRunner',
                  message: str = "This operation is not supported by virtual machine yet"):
         super().__init__(message, prototype_runner.prototype.function_name, prototype_runner.program_counter)

@@ -1,7 +1,7 @@
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
-from luark.vm.types import Table, String, NativeFunction
-
+from luark.vm.exception import TypeException
+from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean, Integer, Float, Function
 
 class Library:
 
@@ -36,3 +36,27 @@ library = Library()
 def print_function(program_runner, prototype_runner) -> None:
     value = program_runner.value_stack.pop()
     print(str(value))
+
+
+@library.register('type')
+def type_function(program_runner, prototype_runner) -> None:
+    value: AnyType = program_runner.value_stack.pop()
+    type_name: str
+
+    if isinstance(value, Nil):
+        type_name = "nil"
+    elif isinstance(value, Boolean):
+        type_name = "boolean"
+    elif isinstance(value, (Integer, Float)):
+        type_name = "number"
+    elif isinstance(value, String):
+        type_name = "string"
+    elif isinstance(value, Table):
+        type_name = "table"
+    elif isinstance(value, (Function, NativeFunction)):
+        type_name = "function"
+    else:
+        error_message = f"Object of unknown type '{type(value).__name__}' passed to 'type' function"
+        raise TypeException(prototype_runner, error_message)
+
+    program_runner.value_stack.append(String(type_name.encode('utf-8', errors='replace')))
