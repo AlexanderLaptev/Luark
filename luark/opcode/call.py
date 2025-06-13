@@ -16,9 +16,9 @@ class Call(Opcode):
         return f"{self.param_count} {self.return_count}"
 
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
-        params = "*" if (self.param_count == 0) else self.param_count - 1
+        # params = "*" if (self.param_count == 0) else self.param_count - 1
         returns = "*" if (self.return_count == 0) else self.return_count - 1
-        return f"p:{params} r:{returns}"
+        return f"p:{self.param_count} r:{returns}"
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         function = program_runner.value_stack.pop()

@@ -115,3 +115,12 @@ class ExpressionList(AstNode, AsList):
     @property
     def is_multires(self) -> bool:
         return self.expressions and isinstance(self.expressions[-1], MultiresExpression)
+
+    @property
+    def singleres_count(self) -> int:
+        result = len(self.expressions)
+        if result == 0:
+            return result
+        if isinstance(self.expressions[-1], MultiresExpression):
+            result -= 1
+        return result

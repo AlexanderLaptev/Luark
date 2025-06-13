@@ -9,7 +9,7 @@ from luark.compiler.ast.table_constructor import TableConstructor
 from luark.compiler.compiler_state import CompilerState
 from luark.opcode.call import Call
 from luark.opcode.local import LoadLocal, StoreLocal
-from luark.opcode.varargs import MarkStack
+from luark.opcode.varargs import BeginArgs
 
 CallParameters: TypeAlias = ExpressionList | TableConstructor | String | None
 
@@ -28,7 +28,7 @@ class FunctionCall(MultiresExpression):
         self.primary.evaluate(state)
         state.add_opcode(StoreLocal(self_index))
 
-        state.add_opcode(MarkStack.INSTANCE)
+        state.add_opcode(BeginArgs.INSTANCE)
         if self.method_name is not None:
             state.add_opcode(LoadLocal(self_index))
             param_count += 1
@@ -43,10 +43,10 @@ class FunctionCall(MultiresExpression):
                 params = ExpressionList(self.meta, [])
 
             params.evaluate(state, adjust_to=None)
-            if params.is_multires:
-                param_count = 0
-            else:
-                param_count += len(params.expressions) + 1
+            # if params.is_multires:
+            #     param_count = 0
+            # else:
+            param_count += params.singleres_count
 
         state.add_opcode(LoadLocal(self_index))
         state.add_opcode(Call(param_count, return_count))

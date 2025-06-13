@@ -9,7 +9,7 @@ from luark.compiler.exceptions import InternalCompilerError
 from luark.opcode.local import LoadLocal, StoreLocal
 from luark.opcode.push import PushConst
 from luark.opcode.table import CreateTable, SetTable, StoreList
-from luark.opcode.varargs import MarkStack
+from luark.opcode.varargs import BeginArgs
 
 
 @dataclass
@@ -54,7 +54,7 @@ class TableConstructor(Expression, AsList):
                 elif isinstance(field, MultiresExpression):
                     size = 0 if (i == last_index) else 1
                     if size == 0:
-                        state.add_opcode(MarkStack.INSTANCE)
+                        state.add_opcode(BeginArgs.INSTANCE)
                     field.evaluate(state, size)
                     state.add_opcode(LoadLocal(table_local))
                     state.add_opcode(StoreList(size))

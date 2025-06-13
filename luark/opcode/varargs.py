@@ -23,15 +23,24 @@ class Varargs(Opcode):
         prototype_runner.step()
 
 
-class MarkStack(Opcode):
+class BeginArgs(Opcode):
     INSTANCE: Self = None
 
     def __init__(self):
-        assert MarkStack.INSTANCE is None
-        super().__init__("mark_stack")
+        assert BeginArgs.INSTANCE is None
+        super().__init__("begin_args")
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         prototype_runner.step()
 
 
-MarkStack.INSTANCE = MarkStack()
+class PrepareVarargs(Opcode):
+    INSTANCE: Self = None
+
+    def __init__(self):
+        assert PrepareVarargs.INSTANCE is None
+        super().__init__("prep_varargs")
+
+
+BeginArgs.INSTANCE = BeginArgs()
+PrepareVarargs.INSTANCE = PrepareVarargs()

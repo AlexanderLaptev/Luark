@@ -13,6 +13,7 @@ from luark.compiler.compiler_state import CompilerState
 from luark.opcode.closure import Closure
 from luark.opcode.local import StoreLocal
 from luark.opcode.return_opcode import Return
+from luark.opcode.varargs import PrepareVarargs
 
 
 @dataclass
@@ -53,6 +54,7 @@ class FunctionDefinition(Expression):
             var = state.add_locals(name)
             param_locals.append(var)
             state.add_opcode(StoreLocal(var.index))
+        state.add_opcode(PrepareVarargs.INSTANCE)
 
         statements = self.body.block.statements
         if statements:
