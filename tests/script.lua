@@ -1,3 +1,3 @@
-for i = 1, 5 do
-    print('test')
+for i = 5, 1, -10 do
+    print(i)
 end

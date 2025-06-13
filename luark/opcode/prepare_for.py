@@ -1,7 +1,7 @@
 from luark.opcode import Opcode
-from luark.vm.exception import TypeException
+from luark.vm.exception import BaseRuntimeException, TypeException
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Integer, Float
+from luark.vm.types import Float, Integer
 
 
 class PrepareForNumeric(Opcode):
@@ -16,21 +16,23 @@ class PrepareForNumeric(Opcode):
         return str(self.control_index)
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        interval = program_runner.value_stack.pop()
+        step = program_runner.value_stack.pop()
         end = program_runner.value_stack.pop()
-        start = program_runner.value_stack.pop()
+        control = program_runner.value_stack.pop()
 
-        if (not isinstance(interval, Integer) and not isinstance(interval, Float)
-            or not isinstance(end, Integer) and not isinstance(end, Float)
-            or not isinstance(start, Integer) and not isinstance(start, Float)):
+        if (not isinstance(step, Integer) and not isinstance(step, Float)
+                or not isinstance(end, Integer) and not isinstance(end, Float)
+                or not isinstance(control, Integer) and not isinstance(control, Float)):
             raise TypeException(prototype_runner)
 
-        prototype_runner.local_variables[self.control_index] = start
+        if step.value == 0:
+            raise BaseRuntimeException("zero step in numeric for loop")
+
+        prototype_runner.local_variables[self.control_index] = control
         prototype_runner.local_variables[self.control_index + 1] = end
-        prototype_runner.local_variables[self.control_index + 2] = interval
+        prototype_runner.local_variables[self.control_index + 2] = step
 
-        prototype_runner.step(3)
-
+        prototype_runner.step()
 
 
 class PrepareForGeneric(Opcode):
