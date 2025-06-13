@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from typing_extensions import TypeVar
 
+from luark.program import Prototype
 from luark.vm.exception import NilPointerException
 
 T = TypeVar('T')
@@ -60,6 +61,11 @@ class Table(AnyType):
         self.table[key] = value
         return
 
+
+@dataclass
+class Function(AnyType):
+    prototype: Prototype
+    pass
 
 def assert_not_nil(value: AnyType):
     if value is Nil:
