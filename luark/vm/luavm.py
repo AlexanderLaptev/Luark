@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from luark.program import Program, Prototype
 from luark.vm.library import Library
-from luark.vm.types import AnyType
+from luark.vm.types import AnyType, Nil
 
 
 @dataclass
@@ -30,7 +30,7 @@ class ProgramRunner:
             PrototypeRunner(
                 prototype=prototype,
                 program_counter=0,
-                local_variables=[AnyType()] * prototype.num_locals,
+                local_variables=[Nil()] * prototype.num_locals,
                 varargs=[]
             )
         )

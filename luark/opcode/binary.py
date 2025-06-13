@@ -161,13 +161,16 @@ class BinaryOperation(Opcode):
 
     @staticmethod
     def _equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value == second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value == second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value == second.value)
-        raise TypeException(prototype_runner)
+        return Boolean(first.value == second.value)
+        # if isinstance(first, Float) and isinstance(second, Float):
+        #     return Boolean(first.value == second.value)
+        # if isinstance(first, Integer) and isinstance(second, Integer):
+        #     return Boolean(first.value == second.value)
+        # if isinstance(first, String) and isinstance(second, String):
+        #     return Boolean(first.value == second.value)
+        # else:
+        #     return Boolean(False)
+        # raise TypeException(prototype_runner)
 
     @staticmethod
     def _not_equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
@@ -181,7 +184,7 @@ class BinaryOperation(Opcode):
 
     @staticmethod
     def _add(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
+        if isinstance(first, Float) or isinstance(second, Float):
             return Float(first.value + second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
             return Integer(first.value + second.value)

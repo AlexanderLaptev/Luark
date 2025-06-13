@@ -61,7 +61,6 @@ class SetTable(Opcode):
 
         if not isinstance(table, Table):
             raise TypeException(prototype_runner, message="Not a table")
-        assert isinstance(table, Table)
 
         table.set(key, value)
         prototype_runner.step()

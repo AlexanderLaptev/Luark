@@ -16,11 +16,10 @@ class AssignmentStatement(Statement):
 
         # Cache variables used in dot/table accesses to
         # ensure the assignment does not affect them.
-        for target in self.targets:
+        for target in reversed(self.targets):
             target.evaluate(state, temporaries)
 
         self.expression_list.evaluate(state, len(self.targets))
-        temporaries.reverse()  # ensure the cached values are read in reverse order
         for target in self.targets:
             target.assign(state, temporaries)
 

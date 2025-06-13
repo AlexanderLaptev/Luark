@@ -52,16 +52,16 @@ class PrepareVarargs(Opcode):
             return
 
         mark = program_runner.pop_mark()
-        expected = prototype_runner.prototype.fixed_param_count
-        actual = len(program_runner.value_stack) - mark
+        expected = prototype_runner.prototype.fixed_param_count - prototype_runner.prototype.fixed_param_count
+        actual = len(program_runner.value_stack) - mark + 1
         extra = max(0, expected - actual)
 
-        if not prototype_runner.prototype.is_variadic:
-            for _ in range(extra):
-                program_runner.value_stack.pop()
-        else:
+        if prototype_runner.prototype.is_variadic:
             prototype_runner.varargs = program_runner.value_stack[-extra:]
             del program_runner.value_stack[-extra:]
+        else:
+            for _ in range(extra):
+                program_runner.value_stack.pop()
 
 
 BeginArgs.INSTANCE = BeginArgs()

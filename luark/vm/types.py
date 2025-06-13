@@ -51,6 +51,7 @@ class Boolean(AnyType):
 
 @dataclass(frozen=True)
 class Nil(AnyType):
+    value = None
 
     def __str__(self):
         return "nil"

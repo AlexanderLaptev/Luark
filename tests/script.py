@@ -2,7 +2,6 @@ import sys
 
 from luark.compiler.compiler import Compiler
 from luark.compiler.exceptions import CompilationError
-from luark.vm.exception import BaseRuntimeException
 from luark.vm.library import library
 from luark.vm.luavm import LuaVM
 
@@ -15,5 +14,5 @@ try:
     pass
 except CompilationError as e:
     print(*e.args, file=sys.stderr)
-except BaseRuntimeException as e:
-    print(e.message, e.prototype_name, e.program_counter)
+# except BaseRuntimeException as e:
+#     print(e.message, e.prototype_name, e.program_counter)

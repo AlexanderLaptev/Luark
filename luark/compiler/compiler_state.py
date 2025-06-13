@@ -204,8 +204,9 @@ class CompilerState:
         return self._current_block.locals.by_name(name)
 
     def release_locals(self, index: int, count: int = 1) -> None:
-        for i in range(count):
-            self._current_proto.released_local_indices.add(index + i)
+        return  # HACK: causes too many problems than it's worth
+        # for i in range(count):
+        #     self._current_proto.released_local_indices.add(index + i)
 
     def _next_local_index(self, reuse: bool = True) -> int:
         if reuse and self._current_proto.released_local_indices:
@@ -317,6 +318,7 @@ class CompilerState:
             bl = bl.parent
 
         goto = _NamedLocation(meta, target_label, pc, block, num_active)
+        self.reserve_opcode()
         proto.gotos.append(goto)
 
     def _close_gotos(self):
