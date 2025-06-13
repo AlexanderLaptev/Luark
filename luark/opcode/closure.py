@@ -1,5 +1,7 @@
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
+from luark.vm.types import Function
 
 
 class Closure(Opcode):
@@ -21,3 +23,9 @@ class Closure(Opcode):
             params.append("...")
         params = ", ".join(params)
         return f"function {name}({params}) [{self.index}]"
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        prototype: Prototype = program_runner.program.prototypes[self.index]
+        function: Function = Function(prototype)
+        program_runner.value_stack.append(function)
+        prototype_runner.step()

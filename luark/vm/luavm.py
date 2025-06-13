@@ -33,6 +33,9 @@ class ProgramRunner:
             )
         )
 
+    def pop_prototype(self):
+        self.call_stack.pop()
+
 
 class LuaVM:
     def __init__(self, program: Program):
