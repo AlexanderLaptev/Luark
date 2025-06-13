@@ -14,4 +14,13 @@ print(type(a))
 print(type(b))
 print(type(c))
 
-error("error")
+-- error("error")
+
+print(sin(0))
+print(cos(0))
+print(sin(rad(90)))
+print(cos(rad(90)))
+
+print(tan(0))
+print(cot(1))
+

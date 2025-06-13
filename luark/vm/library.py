@@ -1,7 +1,8 @@
 from typing import Callable, TYPE_CHECKING
-
+import math
 from luark.vm.exception import TypeException, BaseRuntimeException, DefaultError
 from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean, Integer, Float, Function
+
 
 class Library:
 
@@ -72,3 +73,86 @@ def error_function(program_runner, prototype_runner) -> None:
         error_message = str(message)
 
     raise DefaultError(message=error_message)
+
+
+def _math_unary_operation(program_runner, prototype_runner, math_function, function_name: str):
+    epsilon = 1e-15
+    arg_luark: AnyType = program_runner.value_stack.pop()
+
+    if not isinstance(arg_luark, (Integer, Float)):
+        raise TypeException(
+            prototype_runner,
+            f"bad argument to '{function_name}' (number expected, got {type(arg_luark).__name__})")
+
+    arg: float = float(arg_luark.value)
+    try:
+        result_py: float = math_function(arg)
+        if abs(result_py) < epsilon:
+            result_py = 0.
+    except ValueError as e:
+        raise DefaultError(f"bad argument to '{function_name}' ({str(e)})")
+    except ZeroDivisionError as e:
+        raise DefaultError(f"bad argument to '{function_name}' (division by zero: {str(e)})")
+    program_runner.value_stack.append(Float(result_py))
+
+
+@library.register('sin')
+def sin_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.sin, 'sin')
+
+
+@library.register('cos')
+def cos_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.cos, 'cos')
+
+
+@library.register('tan')
+def tan_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.tan, 'tan')
+
+
+@library.register('cot')
+def cot_function(program_runner, prototype_runner) -> None:
+    def cot_impl(x):
+        return 1.0 / math.tan(x)
+    _math_unary_operation(program_runner, prototype_runner, cot_impl, 'cot')
+
+
+@library.register('ceil')
+def ceil_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.ceil, 'ceil')
+
+
+@library.register('floor')
+def floor_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.floor, 'floor')
+
+
+@library.register('abs')
+def abs_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.fabs, 'abs')
+
+
+@library.register('sqrt')
+def sqrt_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.sqrt, 'sqrt')
+
+
+@library.register('exp')
+def exp_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.exp, 'exp')
+
+
+@library.register('log')
+def log_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.log, 'log')
+
+
+@library.register('deg')
+def deg_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.degrees, 'deg')
+
+
+@library.register('rad')
+def rad_function(program_runner, prototype_runner) -> None:
+    _math_unary_operation(program_runner, prototype_runner, math.radians, 'rad')
