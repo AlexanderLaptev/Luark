@@ -115,6 +115,7 @@ def tan_function(program_runner, prototype_runner) -> None:
 def cot_function(program_runner, prototype_runner) -> None:
     def cot_impl(x):
         return 1.0 / math.tan(x)
+
     _math_unary_operation(program_runner, prototype_runner, cot_impl, 'cot')
 
 
@@ -158,23 +159,32 @@ def rad_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.radians, 'rad')
 
 
-
-
 @library.register('find')
 def find_function(program_runner, prototype_runner) -> None:
-    str: AnyType = program_runner.value_stack.pop()
-    substr: AnyType = program_runner.value_stack.pop()
+    input_str: AnyType = program_runner.value_stack.pop()
+    input_substr: AnyType = program_runner.value_stack.pop()
 
-    if not isinstance(substr, String):
+    if not isinstance(input_substr, String):
         raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
-    if not isinstance( str, String):
+    if not isinstance(input_str, String):
         raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
 
-    main_str: str = str.value.decode('utf-8', errors='replace')
-    sub_str: str = substr.value.decode('utf-8', errors='replace')
+    str_py: input_str = input_str.value.decode('utf-8', errors='replace')
+    substr_py: input_str = input_substr.value.decode('utf-8', errors='replace')
 
-    index_py: int = main_str.find(sub_str)
+    index_py: int = str_py.find(substr_py)
     if index_py == -1:
         program_runner.value_stack.append(Nil())
     else:
         program_runner.value_stack.append(Integer(index_py + 1))
+
+
+@library.register('lower')
+def lower_function(program_runner, prototype_runner) -> None:
+    input_str: AnyType = program_runner.value_stack.pop()
+
+    if not isinstance(input_str, String):
+        raise TypeException(prototype_runner, "bad argument to 'lower' (string expected)")
+
+    str_py: str = input_str.value.decode('utf-8', errors='replace')
+    program_runner.value_stack.append(String(str_py.lower().encode('utf-8')))

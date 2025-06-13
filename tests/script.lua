@@ -21,7 +21,6 @@ print(type(c))
 -- print(tan(0))
 -- print(cot(1))
 
-print(find("hello world", "world"))
-print(find("hello world", "o w"))
-print(find("hello world", "test"))
-print(find("banana", "ana"))
+print(find("hello world", "wor"))
+print(lower("HeLLo World!"))
+
