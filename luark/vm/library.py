@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import typing
 import math
+import typing
 from typing import Callable
 
 if typing.TYPE_CHECKING:
@@ -35,7 +35,7 @@ library = Library()
 Взаимодействие с данными внутри программы осуществляется через взаимодействие со стеком значений `pr.value_stack.pop()`
 Доступные типы, используемые в стеке значений описаны в vm/types.py
 
-Виртуальная машина после завершения функции автоматически икрементирует счетчик команд (PrototypeRunner.program_counter)
+Виртуальная машина после завершения функции автоматически инкрементирует счетчик команд (PrototypeRunner.program_counter)
 """
 
 
@@ -44,8 +44,6 @@ def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRun
     count = len(program_runner.value_stack) - program_runner.peek_mark()
     for value in reversed(program_runner.value_stack[-count:]):
         print(str(value))
-    # value = program_runner.value_stack.pop()
-    # print(str(value))
 
 
 @library.register('type')
@@ -66,14 +64,14 @@ def type_function(program_runner, prototype_runner) -> None:
     elif isinstance(value, (Function, NativeFunction)):
         type_name = "function"
     else:
-        error_message = f"Object of unknown type '{type(value).__name__}' passed to 'type' function"
+        error_message = f"object of unknown type '{type(value).__name__}' passed to 'type' function"
         raise TypeException(prototype_runner, error_message)
 
     program_runner.value_stack.append(String(type_name.encode('utf-8', errors='replace')))
 
 
 @library.register('error')
-def error_function(program_runner, prototype_runner) -> None:
+def error_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     message: AnyType = program_runner.value_stack.pop()
     error_message: str
     if isinstance(message, String):
@@ -91,7 +89,8 @@ def _math_unary_operation(program_runner, prototype_runner, math_function, funct
     if not isinstance(arg_luark, (Integer, Float)):
         raise TypeException(
             prototype_runner,
-            f"bad argument to '{function_name}' (number expected, got {type(arg_luark).__name__})")
+            f"bad argument to '{function_name}' (number expected, got {type(arg_luark).__name__})"
+        )
 
     arg: float = float(arg_luark.value)
     try:
@@ -174,9 +173,9 @@ def find_function(program_runner, prototype_runner) -> None:
     input_substr: AnyType = program_runner.value_stack.pop()
 
     if not isinstance(input_substr, String):
-        raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
+        raise TypeException(prototype_runner, "bad argument for 'find' (string expected)")
     if not isinstance(input_str, String):
-        raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
+        raise TypeException(prototype_runner, "bad argument for 'find' (string expected)")
 
     str_py: input_str = input_str.value.decode('utf-8', errors='replace')
     substr_py: input_str = input_substr.value.decode('utf-8', errors='replace')
@@ -204,7 +203,7 @@ def lower_function(program_runner, prototype_runner) -> None:
     input_str: AnyType = program_runner.value_stack.pop()
 
     if not isinstance(input_str, String):
-        raise TypeException(prototype_runner, "bad argument to 'upper' (string expected)")
+        raise TypeException(prototype_runner, "bad argument for 'upper' (string expected)")
 
     str_py: str = input_str.value.decode('utf-8', errors='replace')
     program_runner.value_stack.append(String(str_py.upper().encode('utf-8')))
@@ -217,11 +216,14 @@ def substring_function(program_runner, prototype_runner) -> None:
     to_idx: AnyType = program_runner.value_stack.pop()
 
     if not isinstance(input_str, String):
-        raise TypeException(prototype_runner, "bad argument #1 to 'substring' (string expected)")
+        raise TypeException(prototype_runner, "bad argument #1 for 'substring' (string expected)")
     if not isinstance(from_idx, Integer):
-        raise TypeException(prototype_runner, "bad argument #2 to 'substring' (number/integer expected)")
+        raise TypeException(prototype_runner, "bad argument #2 for 'substring' (number/integer expected)")
     if not isinstance(to_idx, Integer):
-        raise TypeException(prototype_runner, "bad argument #3 to 'substring' (number/integer expected)")
+        raise TypeException(prototype_runner, "bad argument #3 for 'substring' (number/integer expected)")
+    input_str: String
+    from_idx: Integer
+    to_idx: Integer
 
     str_py: str = input_str.value.decode('utf-8', errors='replace')
     str_len: int = len(str_py)
