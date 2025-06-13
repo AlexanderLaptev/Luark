@@ -1,4 +1,3 @@
-import typing
 from dataclasses import dataclass
 
 from luark.program import Program, Prototype
@@ -9,6 +8,7 @@ from luark.vm.types import AnyType
 class PrototypeRunner:
     prototype: Prototype
     program_counter: int
+    local_variables: list[AnyType]
 
     def step(self, offest: int = 1):
         self.program_counter += offest
@@ -26,7 +26,8 @@ class ProgramRunner:
         self.call_stack.append(
             PrototypeRunner(
                 prototype=prototype,
-                program_counter=0
+                program_counter=0,
+                local_variables=[AnyType()] * prototype.num_locals
             )
         )
 
