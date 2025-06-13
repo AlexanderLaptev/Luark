@@ -11,7 +11,6 @@ from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean,
 
 
 class Library:
-
     def __init__(self):
         self._function_table: Table = Table()
 
@@ -43,7 +42,10 @@ library = Library()
 def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     count = len(program_runner.value_stack) - program_runner.peek_mark()
     for value in reversed(program_runner.value_stack[-count:]):
-        print(str(value))
+        if isinstance(value, Boolean):
+            print(str(value).lower())
+        else:
+            print(str(value))
 
 
 @library.register('type')
