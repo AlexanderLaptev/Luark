@@ -1,12 +1,9 @@
-import typing
 from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
 from luark.vm.types import Boolean, Nil, Integer, Float, String
-# if typing.TYPE_CHECKING:
-#     pass
 
 
 class PushConst(Opcode):
@@ -27,8 +24,13 @@ class PushConst(Opcode):
         return str(value)
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        value: bytes = prototype_runner.prototype.constant_pool[self.index]
-        program_runner.value_stack.append(String(value))
+        value = prototype_runner.prototype.constant_pool[self.index]
+        if isinstance(value, bytes):
+            program_runner.value_stack.append(String(value))
+        elif isinstance(value, int):
+            program_runner.value_stack.append(Integer(value))
+        elif isinstance(value, float):
+            program_runner.value_stack.append(Float(value))
         prototype_runner.step()
 
 
