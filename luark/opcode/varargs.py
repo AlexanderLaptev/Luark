@@ -1,4 +1,3 @@
-import warnings
 from typing import Self
 
 from luark.opcode import Opcode
@@ -32,6 +31,7 @@ class BeginArgs(Opcode):
         super().__init__("begin_args")
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.push_mark()
         prototype_runner.step()
 
 
@@ -43,8 +43,16 @@ class PrepareVarargs(Opcode):
         super().__init__("prep_varargs")
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        warnings.warn("unsupported opcode, skipping")
-        prototype_runner.step(1)
+        prototype_runner.step()
+        if not program_runner.marks:
+            return
+
+        mark = program_runner.pop_mark()
+        if not prototype_runner.prototype.is_variadic:
+            expected = prototype_runner.prototype.fixed_param_count
+            actual = len(program_runner.value_stack) - mark
+            for _ in range(max(0, expected - actual)):
+                program_runner.value_stack.pop()
 
 
 BeginArgs.INSTANCE = BeginArgs()

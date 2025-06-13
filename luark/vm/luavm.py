@@ -18,6 +18,7 @@ class PrototypeRunner:
 class ProgramRunner:
     def __init__(self, program: Program):
         self.value_stack: list[AnyType] = []
+        self.marks: list[int] = []
         self.env: dict[int, AnyType] = {}
         self.call_stack: list[PrototypeRunner] = []
         self.program: Program = program
@@ -34,6 +35,15 @@ class ProgramRunner:
 
     def pop_prototype(self):
         self.call_stack.pop()
+
+    def push_mark(self):
+        self.marks.append(len(self.value_stack))
+
+    def peek_mark(self) -> int:
+        return self.marks[-1]
+
+    def pop_mark(self) -> int:
+        return self.marks.pop()
 
 
 class LuaVM:
