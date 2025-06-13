@@ -20,6 +20,10 @@ class Varargs(Opcode):
         return "all" if (self.count == 0) else f"{self.count} values"
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        if self.count == 0:
+            program_runner.value_stack.extend(prototype_runner.varargs)
+        else:
+            program_runner.value_stack.extend(prototype_runner.varargs[:self.count:-1])
         prototype_runner.step()
 
 
@@ -48,11 +52,16 @@ class PrepareVarargs(Opcode):
             return
 
         mark = program_runner.pop_mark()
+        expected = prototype_runner.prototype.fixed_param_count
+        actual = len(program_runner.value_stack) - mark
+        extra = max(0, expected - actual)
+
         if not prototype_runner.prototype.is_variadic:
-            expected = prototype_runner.prototype.fixed_param_count
-            actual = len(program_runner.value_stack) - mark
-            for _ in range(max(0, expected - actual)):
+            for _ in range(extra):
                 program_runner.value_stack.pop()
+        else:
+            prototype_runner.varargs = program_runner.value_stack[-extra:]
+            del program_runner.value_stack[-extra:]
 
 
 BeginArgs.INSTANCE = BeginArgs()

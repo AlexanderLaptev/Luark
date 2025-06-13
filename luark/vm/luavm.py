@@ -10,6 +10,7 @@ class PrototypeRunner:
     prototype: Prototype
     program_counter: int
     local_variables: list[AnyType]
+    varargs: list[AnyType]
 
     def step(self, offset: int = 1):
         self.program_counter += offset
@@ -29,7 +30,8 @@ class ProgramRunner:
             PrototypeRunner(
                 prototype=prototype,
                 program_counter=0,
-                local_variables=[AnyType()] * prototype.num_locals
+                local_variables=[AnyType()] * prototype.num_locals,
+                varargs=[]
             )
         )
 
