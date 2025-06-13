@@ -1,8 +1,9 @@
+import warnings
 from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-from luark.vm.luavm import PrototypeRunner, ProgramRunner
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 
 class Varargs(Opcode):
@@ -40,6 +41,10 @@ class PrepareVarargs(Opcode):
     def __init__(self):
         assert PrepareVarargs.INSTANCE is None
         super().__init__("prep_varargs")
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        warnings.warn("unsupported opcode, skipping")
+        prototype_runner.step(1)
 
 
 BeginArgs.INSTANCE = BeginArgs()

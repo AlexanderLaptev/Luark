@@ -16,14 +16,13 @@ class Call(Opcode):
         return f"{self.param_count} {self.return_count}"
 
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
-        # params = "*" if (self.param_count == 0) else self.param_count - 1
         returns = "*" if (self.return_count == 0) else self.return_count - 1
         return f"p:{self.param_count} r:{returns}"
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         function = program_runner.value_stack.pop()
         if not isinstance(function, Function) and not isinstance(function, NativeFunction):
-            raise TypeException(prototype_runner=prototype_runner, message="Can not call not a callable object")
+            raise TypeException(prototype_runner=prototype_runner, message="Cannot call not a callable object")
 
         if isinstance(function, Function):
             assert isinstance(function, Function)

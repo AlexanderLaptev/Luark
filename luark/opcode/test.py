@@ -1,11 +1,8 @@
-import typing
 from typing import Self
 
 from luark.opcode import Opcode
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-
-if typing.TYPE_CHECKING:
-    from luark.vm.types import Boolean, Nil
+from luark.vm.types import Boolean, Nil
 
 
 class Test(Opcode):
@@ -23,12 +20,12 @@ class Test(Opcode):
             return
 
         if isinstance(value, Boolean):
-            assert isinstance(value, Boolean)
             if not value.value:
                 prototype_runner.step(1)
                 return
 
         prototype_runner.step(2)
+
 
 Test.INSTANCE = Test()
 
@@ -46,7 +43,6 @@ class TestNil(Opcode):
             prototype_runner.step(2)
         else:
             prototype_runner.step(1)
-
 
 
 TestNil.INSTANCE = TestNil()

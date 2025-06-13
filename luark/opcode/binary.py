@@ -2,9 +2,9 @@ from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-from luark.vm.exception import UnsupportedOperation, TypeException
+from luark.vm.exception import TypeException, UnsupportedOperation
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import String, Boolean, AnyType, Integer, Float
+from luark.vm.types import AnyType, Boolean, Float, Integer, String
 
 
 class BinaryOperation(Opcode):
@@ -50,8 +50,8 @@ class BinaryOperation(Opcode):
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         result: AnyType
-        first: AnyType = program_runner.value_stack.pop()
         second: AnyType = program_runner.value_stack.pop()
+        first: AnyType = program_runner.value_stack.pop()
         match self.operation:
             case 0:
                 result = self._concat(first, second, prototype_runner)
@@ -127,13 +127,10 @@ class BinaryOperation(Opcode):
     @staticmethod
     def _less_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value < second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value < second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value < second.value)
         raise TypeException(prototype_runner)
 
