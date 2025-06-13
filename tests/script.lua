@@ -1,9 +1,10 @@
 
-local a = function (a, b)
-    return a + b
+local foo = function(a)
+    print(a, 1)
+    --return (a + b)
 end
 
-a(1, 2)
+foo("string to print", 2)
 
 -- a = 1
 -- a = 1, 2

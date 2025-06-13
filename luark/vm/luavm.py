@@ -17,7 +17,7 @@ class PrototypeRunner:
 class ProgramRunner:
     def __init__(self, program: Program):
         self.value_stack: list[AnyType] = []
-        self.env: dict[int, AnyType]
+        self.env: dict[int, AnyType] = {}
         self.call_stack: list[PrototypeRunner] = []
         self.program: Program = program
         self.push_prototype(program.prototypes[0])
@@ -36,8 +36,16 @@ class ProgramRunner:
 
 
 class LuaVM:
-    def __init__(self, program: Program):
+    from luark.vm.library import Library
+    def __init__(self, program: Program, library: Library = None):
+        from luark.vm.library import Library
         self.runner: ProgramRunner = ProgramRunner(program=program)
+        self.library: Library = library
+        self.set_up_env()
+
+    def set_up_env(self):
+        if self.library is None: return
+        self.runner.env[0] = self.library.get_table()
 
     def loop(self):
         while len(self.runner.call_stack) > 0:

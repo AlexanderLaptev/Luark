@@ -2,6 +2,7 @@ from typing import Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
+from luark.vm.luavm import PrototypeRunner, ProgramRunner
 
 
 class Varargs(Opcode):
@@ -18,6 +19,9 @@ class Varargs(Opcode):
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return "all" if (self.count == 0) else f"{self.count} values"
 
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        prototype_runner.step()
+
 
 class MarkStack(Opcode):
     INSTANCE: Self = None
@@ -25,6 +29,9 @@ class MarkStack(Opcode):
     def __init__(self):
         assert MarkStack.INSTANCE is None
         super().__init__("mark_stack")
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        prototype_runner.step()
 
 
 MarkStack.INSTANCE = MarkStack()
