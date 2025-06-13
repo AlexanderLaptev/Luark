@@ -1,6 +1,6 @@
 from typing import Callable, TYPE_CHECKING
 
-from luark.vm.exception import TypeException
+from luark.vm.exception import TypeException, BaseRuntimeException, DefaultError
 from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean, Integer, Float, Function
 
 class Library:
@@ -60,3 +60,15 @@ def type_function(program_runner, prototype_runner) -> None:
         raise TypeException(prototype_runner, error_message)
 
     program_runner.value_stack.append(String(type_name.encode('utf-8', errors='replace')))
+
+
+@library.register('error')
+def error_function(program_runner, prototype_runner) -> None:
+    message: AnyType = program_runner.value_stack.pop()
+    error_message: str
+    if isinstance(message, String):
+        error_message = message.value.decode('utf-8', errors='replace')
+    else:
+        error_message = str(message)
+
+    raise DefaultError(message=error_message)

@@ -13,3 +13,5 @@ c = 5.5
 print(type(a))
 print(type(b))
 print(type(c))
+
+error("error")

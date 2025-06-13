@@ -33,3 +33,9 @@ class UnsupportedOperation(BaseRuntimeException):
     def __init__(self, prototype_runner: 'PrototypeRunner',
                  message: str = "This operation is not supported by virtual machine yet"):
         super().__init__(message, prototype_runner.prototype.function_name, prototype_runner.program_counter)
+
+
+class DefaultError(RuntimeError):
+
+    def __init__(self, message: str = ""):
+        self.message: str = message
