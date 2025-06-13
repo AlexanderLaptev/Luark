@@ -106,21 +106,18 @@ class BinaryOperation(Opcode):
     def _concat(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if not isinstance(first, String) or not isinstance(second, String):
             raise TypeException(prototype_runner)
-        assert isinstance(first, String) and isinstance(second, String)
         return String(first.value + second.value)
 
     @staticmethod
     def _or(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if not isinstance(first, Boolean) or not isinstance(second, Boolean):
             raise TypeException(prototype_runner)
-        assert isinstance(first, Boolean) and isinstance(second, Boolean)
         return Boolean(first.value or second.value)
 
     @staticmethod
     def _and(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if not isinstance(first, Boolean) or not isinstance(second, Boolean):
             raise TypeException(prototype_runner)
-        assert isinstance(first, Boolean) and isinstance(second, Boolean)
         return Boolean(first.value and second.value)
 
     # todo: I dont convert Int to Float (or back) yet.
@@ -137,170 +134,134 @@ class BinaryOperation(Opcode):
     @staticmethod
     def _greater_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value > second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value > second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value > second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _less_or_equal_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value <= second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value <= second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value <= second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _greater_or_equal_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value >= second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value >= second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value >= second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value == second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value == second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value == second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _not_equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Boolean(first.value != second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Boolean(first.value != second.value)
         if isinstance(first, String) and isinstance(second, String):
-            assert isinstance(first, String) and isinstance(second, String)
             return Boolean(first.value != second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _add(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Float(first.value + second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value + second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _subtract(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Float(first.value - second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value - second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _multiply(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Float(first.value * second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value * second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if  isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
+        if isinstance(first, Float) and isinstance(second, Float):
             return Float(first.value / second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Float(first.value / second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _floor_divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Float):
-            assert isinstance(first, Float) and isinstance(second, Float)
             return Float(first.value // second.value)
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value // second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _modulo_divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        # if first is Float and second is Float:
-        #     assert isinstance(first, Float) and isinstance(second, Float)
-        #     return Float(first.value % second.value)
-        if  isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
+        if isinstance(first, Integer) and isinstance(second, Integer):
             return Integer(first.value % second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _exponentiate(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Float) and isinstance(second, Integer):
-            assert isinstance(first, Float) and isinstance(second, Integer)
             return Float(first.value ** second.value)
-        if  isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
+        if isinstance(first, Integer) and isinstance(second, Integer):
             return Integer(first.value ** second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _bitwise_or(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value | second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _bitwise_xor(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value ^ second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _bitwise_and(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value & second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _bitwise_left_shift(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value << second.value)
         raise TypeException(prototype_runner)
 
     @staticmethod
     def _bitwise_right_shift(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
         if isinstance(first, Integer) and isinstance(second, Integer):
-            assert isinstance(first, Integer) and isinstance(second, Integer)
             return Integer(first.value >> second.value)
         raise TypeException(prototype_runner)
 

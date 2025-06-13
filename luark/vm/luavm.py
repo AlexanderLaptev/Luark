@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from luark.program import Program, Prototype
+from luark.vm.library import Library
 from luark.vm.types import AnyType
 
 
@@ -10,8 +11,8 @@ class PrototypeRunner:
     program_counter: int
     local_variables: list[AnyType]
 
-    def step(self, offest: int = 1):
-        self.program_counter += offest
+    def step(self, offset: int = 1):
+        self.program_counter += offset
 
 
 class ProgramRunner:
@@ -36,15 +37,15 @@ class ProgramRunner:
 
 
 class LuaVM:
-    from luark.vm.library import Library
     def __init__(self, program: Program, library: Library = None):
-        from luark.vm.library import Library
         self.runner: ProgramRunner = ProgramRunner(program=program)
         self.library: Library = library
         self.set_up_env()
 
     def set_up_env(self):
-        if self.library is None: return
+        if self.library is None:
+            return
+
         self.runner.env[0] = self.library.get_table()
 
     def loop(self):
