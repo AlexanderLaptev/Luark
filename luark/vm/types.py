@@ -1,14 +1,10 @@
 import typing
 from dataclasses import dataclass
 
-from typing_extensions import TypeVar
-
 from luark.program import Prototype
 
 if typing.TYPE_CHECKING:
     from luark.vm.exception import NilPointerException
-
-T = TypeVar('T')
 
 
 class AnyType:
@@ -56,6 +52,7 @@ class Nil(AnyType):
 
     def __str__(self):
         return "nil"
+
 
 @dataclass(frozen=False)
 class Table(AnyType):
