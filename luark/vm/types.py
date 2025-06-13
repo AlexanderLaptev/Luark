@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing_extensions import TypeVar
 
 from luark.program import Prototype
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
+
 if typing.TYPE_CHECKING:
     from luark.vm.exception import NilPointerException
 
@@ -45,7 +47,7 @@ class Nil(AnyType):
 
 
 class Table(AnyType):
-    table: dict[AnyType, AnyType] # todo: maybe change to something better
+    table: dict[AnyType, AnyType]  # todo: maybe change to something better
 
     def __init__(self):
         self.table = {}
@@ -64,10 +66,27 @@ class Table(AnyType):
         return
 
 
+class Callable(AnyType):
+    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        pass
+
+
 @dataclass
-class Function(AnyType):
+class Function(Callable):
     prototype: Prototype
-    pass
+
+    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.push_prototype(self.prototype)
+
+
+@dataclass
+class NativeFunction(Callable):
+    function: typing.Callable[[ProgramRunner, PrototypeRunner], None]
+
+    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        self.function(program_runner, prototype_runner)
+        prototype_runner.step()
+
 
 def assert_not_nil(value: AnyType):
     if value is Nil:
