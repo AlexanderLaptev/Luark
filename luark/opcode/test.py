@@ -2,7 +2,7 @@ from typing import Self
 
 from luark.opcode import Opcode
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Boolean, Nil
+from luark.vm.types import Boolean, Nil, Integer, Float
 
 
 class Test(Opcode):
@@ -58,3 +58,28 @@ class TestNumericFor(Opcode):
     @property
     def arg_str(self) -> str:
         return str(self.control_index)
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        iterator = prototype_runner.local_variables[self.control_index]
+        end = prototype_runner.local_variables[self.control_index + 1]
+        interval = prototype_runner.local_variables[self.control_index + 2]
+
+        assert isinstance(iterator, Float | Integer)
+        assert isinstance(interval, Float | Integer)
+        assert isinstance(end, Float | Integer)
+
+        next_iterator_value = iterator.value + interval.value
+
+        if interval.value > 0 and next_iterator_value >= end.value:  # stop
+            prototype_runner.step(1)
+            return
+        if interval.value < 0 and next_iterator_value <= end.value:  # stop
+            prototype_runner.step(1)
+            return
+
+        # continue
+        # if isinstance(next_iterator_value, int):
+        #     prototype_runner.local_variables[self.control_index] = Integer(next_iterator_value)
+        # else:
+        #     prototype_runner.local_variables[self.control_index] = Float(next_iterator_value)
+        prototype_runner.step(2)
