@@ -156,3 +156,25 @@ def deg_function(program_runner, prototype_runner) -> None:
 @library.register('rad')
 def rad_function(program_runner, prototype_runner) -> None:
     _math_unary_operation(program_runner, prototype_runner, math.radians, 'rad')
+
+
+
+
+@library.register('find')
+def find_function(program_runner, prototype_runner) -> None:
+    str: AnyType = program_runner.value_stack.pop()
+    substr: AnyType = program_runner.value_stack.pop()
+
+    if not isinstance(substr, String):
+        raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
+    if not isinstance( str, String):
+        raise TypeException(prototype_runner, "bad argument to 'find' (string expected)")
+
+    main_str: str = str.value.decode('utf-8', errors='replace')
+    sub_str: str = substr.value.decode('utf-8', errors='replace')
+
+    index_py: int = main_str.find(sub_str)
+    if index_py == -1:
+        program_runner.value_stack.append(Nil())
+    else:
+        program_runner.value_stack.append(Integer(index_py + 1))

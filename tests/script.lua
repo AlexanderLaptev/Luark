@@ -16,11 +16,12 @@ print(type(c))
 
 -- error("error")
 
-print(sin(0))
-print(cos(0))
-print(sin(rad(90)))
-print(cos(rad(90)))
+-- print(sin(0))
+-- print(cos(rad(90)))
+-- print(tan(0))
+-- print(cot(1))
 
-print(tan(0))
-print(cot(1))
-
+print(find("hello world", "world"))
+print(find("hello world", "o w"))
+print(find("hello world", "test"))
+print(find("banana", "ana"))
