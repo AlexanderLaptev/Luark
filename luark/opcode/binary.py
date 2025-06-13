@@ -104,9 +104,7 @@ class BinaryOperation(Opcode):
 
     @staticmethod
     def _concat(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if not isinstance(first, String) or not isinstance(second, String):
-            raise TypeException(prototype_runner)
-        return String(first.value + second.value)
+        return String(str(first).encode() + str(second).encode())
 
     @staticmethod
     def _or(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):

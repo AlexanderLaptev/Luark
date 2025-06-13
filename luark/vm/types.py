@@ -1,4 +1,5 @@
 import typing
+from abc import ABC
 from dataclasses import dataclass
 
 from luark.program import Prototype
@@ -7,8 +8,9 @@ if typing.TYPE_CHECKING:
     pass
 
 
-class AnyType:
-    pass
+class AnyType(ABC):
+    def __str__(self) -> str:
+        return ""
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,9 @@ class Table(AnyType):
 @dataclass(frozen=True)
 class Function(AnyType):
     prototype: Prototype
+
+    def __str__(self):
+        return self.prototype.function_name
 
 
 @dataclass(frozen=True)

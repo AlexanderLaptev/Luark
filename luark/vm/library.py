@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+import typing
 from typing import Callable
 
-from luark.vm.types import Table, String, NativeFunction
+from luark.vm.types import NativeFunction, String, Table
+
+if typing.TYPE_CHECKING:
+    from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 
 class Library:
@@ -32,7 +38,10 @@ library = Library()
 """
 
 
-@library.register('print')  # name in lua-code
-def print_function(program_runner, prototype_runner) -> None:
-    value = program_runner.value_stack.pop()
-    print(str(value))
+@library.register('print')  # name in Lua code
+def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
+    count = len(program_runner.value_stack) - program_runner.peek_mark()
+    for value in reversed(program_runner.value_stack[-count:]):
+        print(str(value))
+    # value = program_runner.value_stack.pop()
+    # print(str(value))

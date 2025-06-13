@@ -4,7 +4,7 @@ from luark.opcode import Opcode
 from luark.program import Program, Prototype
 from luark.vm.exception import TypeException, UnsupportedOperation
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Integer, Float, Boolean, String, Table, AnyType
+from luark.vm.types import AnyType, Boolean, Float, Integer, String, Table
 
 
 class UnaryOperation(Opcode):
@@ -33,30 +33,25 @@ class UnaryOperation(Opcode):
         value = program_runner.value_stack.pop()
         match self.operation:
             case 0:  # negate
-                if value is not Integer | Float:
+                if not isinstance(value, Integer | Float):
                     raise TypeException(prototype_runner)
-                assert isinstance(value, Integer | Float)
                 result = self._negate(value)
             case 1:  # not
-                if value is not Boolean:
+                if not isinstance(value, Boolean):
                     raise TypeException(prototype_runner)
-                assert isinstance(value, Boolean)
                 result = self._not(value)
             case 2:  # length
-                if value is not String | Table:
+                if not isinstance(value, String | Table):
                     raise TypeException(prototype_runner)
-                assert isinstance(value, String | Table)
                 result = self._length(value)
             case 3:  # bwnot
-                if value is not Integer:
+                if not isinstance(value, Integer):
                     raise TypeException(prototype_runner)
-                assert isinstance(value, Integer)
                 result = self._bitwise_not(value)
             case _:
                 raise UnsupportedOperation(prototype_runner)
         program_runner.value_stack.append(result)
         prototype_runner.step()
-
 
     @staticmethod
     def _negate(value: Integer | Float):
