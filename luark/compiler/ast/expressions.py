@@ -87,6 +87,9 @@ class ExpressionList(AstNode, AsList):
         if adjust_to is None:
             if isinstance(last, MultiresExpression):
                 last.evaluate(state, return_count=0)
+            else:
+                last.evaluate(state)
+
             for expression in reversed(self.expressions[:-1]):
                 expression.evaluate(state)
         else:
