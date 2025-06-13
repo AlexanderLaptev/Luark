@@ -1,5 +1,6 @@
 
-local a = function (a, b)
+local a = function(a, b)
+    print(a)
     return a + b
 end
 

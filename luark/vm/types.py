@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing_extensions import TypeVar
 
 from luark.program import Prototype
-from luark.vm.luavm import ProgramRunner, PrototypeRunner
 
 if typing.TYPE_CHECKING:
     from luark.vm.exception import NilPointerException
@@ -12,22 +11,28 @@ if typing.TYPE_CHECKING:
 T = TypeVar('T')
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnyType:
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Float(AnyType):
     value: float
 
+    def __str__(self):
+        return str(self.value)
 
-@dataclass
+
+@dataclass(frozen=True)
 class Integer(AnyType):
     value: int
 
+    def __str__(self):
+        return str(self.value)
 
-@dataclass
+
+@dataclass(frozen=True)
 class String(AnyType):
     value: bytes
 
@@ -35,22 +40,33 @@ class String(AnyType):
     def length(self) -> int:
         return len(self.value)
 
+    def __str__(self):
+        return self.value.decode('utf-8', errors='replace')
 
-@dataclass
+
+@dataclass(frozen=True)
 class Boolean(AnyType):
     value: bool
 
+    def __str__(self):
+        return str(self.value)
 
-@dataclass
+
+@dataclass(frozen=True)
 class Nil(AnyType):
-    pass
 
+    def __str__(self):
+        return "nil"
 
+@dataclass(frozen=True)
 class Table(AnyType):
     table: dict[AnyType, AnyType]  # todo: maybe change to something better
 
-    def __init__(self):
-        self.table = {}
+    # def __init__(self):
+        # self.table = {}
+
+    def __str__(self):
+        return "{}" + ", ".join([f"{str(key)}: {str(value)}" for key, value in self.table.items()]) + "}"
 
     @property
     def length(self) -> int:
@@ -66,26 +82,17 @@ class Table(AnyType):
         return
 
 
-class Callable(AnyType):
-    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        pass
-
-
-@dataclass
-class Function(Callable):
+@dataclass(frozen=True)
+class Function(AnyType):
     prototype: Prototype
 
-    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        program_runner.push_prototype(self.prototype)
 
+@dataclass(frozen=True)
+class NativeFunction(AnyType):
+    function: typing.Callable[..., None]
 
-@dataclass
-class NativeFunction(Callable):
-    function: typing.Callable[[ProgramRunner, PrototypeRunner], None]
-
-    def call(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
-        self.function(program_runner, prototype_runner)
-        prototype_runner.step()
+    def __str__(self):
+        return self.function.__name__
 
 
 def assert_not_nil(value: AnyType):

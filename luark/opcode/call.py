@@ -2,7 +2,7 @@ from luark.opcode import Opcode
 from luark.program import Program, Prototype
 from luark.vm.exception import TypeException
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
-from luark.vm.types import Function
+from luark.vm.types import Function, NativeFunction
 
 
 class Call(Opcode):
@@ -22,8 +22,16 @@ class Call(Opcode):
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         function = program_runner.value_stack.pop()
-        if function is not Function:
-            raise TypeException(prototype_runner=prototype_runner, message="Can not call not a function object")
-        # todo: do some magic with arguments adjustment and/or varargs
-        assert isinstance(function, Function)
-        program_runner.push_prototype(function.prototype)
+        if function is not Function | NativeFunction:
+            raise TypeException(prototype_runner=prototype_runner, message="Can not call not a callable object")
+
+        if function is Function:
+            assert isinstance(function, Function)
+            program_runner.push_prototype(function.prototype)
+            return
+
+        if function is NativeFunction:
+            assert isinstance(function, NativeFunction)
+            function.function(program_runner, prototype_runner)
+            prototype_runner.step()
+            return
