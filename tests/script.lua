@@ -23,4 +23,5 @@ print(type(c))
 
 print(find("hello world", "wor"))
 print(lower("HeLLo World!"))
+print(upper("Hello World!"))
 

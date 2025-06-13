@@ -1,6 +1,7 @@
-from typing import Callable, TYPE_CHECKING
 import math
-from luark.vm.exception import TypeException, BaseRuntimeException, DefaultError
+from typing import Callable
+
+from luark.vm.exception import TypeException, DefaultError
 from luark.vm.types import Table, String, NativeFunction, AnyType, Nil, Boolean, Integer, Float, Function
 
 
@@ -188,3 +189,14 @@ def lower_function(program_runner, prototype_runner) -> None:
 
     str_py: str = input_str.value.decode('utf-8', errors='replace')
     program_runner.value_stack.append(String(str_py.lower().encode('utf-8')))
+
+
+@library.register('upper')
+def lower_function(program_runner, prototype_runner) -> None:
+    input_str: AnyType = program_runner.value_stack.pop()
+
+    if not isinstance(input_str, String):
+        raise TypeException(prototype_runner, "bad argument to 'upper' (string expected)")
+
+    str_py: str = input_str.value.decode('utf-8', errors='replace')
+    program_runner.value_stack.append(String(str_py.upper().encode('utf-8')))
