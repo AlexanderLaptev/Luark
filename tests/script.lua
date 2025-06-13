@@ -1,2 +1,3 @@
-a = {"test", 1, 2, hello = "abc"}
-print(a.hello)
+for i = 1, 5 do
+    print('test')
+end

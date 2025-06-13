@@ -8,6 +8,7 @@ from luark.compiler.ast.expressions import Expression, ExpressionList
 from luark.compiler.ast.statement import Statement
 from luark.compiler.compiler_state import CompilerState
 from luark.compiler.exceptions import InternalCompilerError
+from luark.opcode.binary import BinaryOperation
 from luark.opcode.call import Call
 from luark.opcode.local import LoadLocal, MarkTBC, StoreLocal
 from luark.opcode.prepare_for import PrepareForGeneric, PrepareForNumeric
@@ -67,7 +68,22 @@ class NumericForLoop(ForLoop):
 
         loop_start_pc = state.program_counter
         state.add_opcode(TestNumericFor(control_local.index))
-        self._emit_body(state, loop_start_pc)
+
+        escape_jump_pc = state.reserve_opcode()
+        state.begin_loop()
+        for statement in self.body.statements:
+            statement.compile(state)
+
+        state.add_opcode(LoadLocal(control_local.index))
+        state.add_opcode(LoadLocal(control_local.index + 2))
+        state.add_opcode(BinaryOperation.ADD)
+        state.add_opcode(StoreLocal(control_local.index))
+
+        state.add_jump(loop_start_pc)
+        state.set_jump(escape_jump_pc)
+        state.end_loop()
+        state.end_block()
+
         state.release_locals(control_local.index, 3)
 
 
