@@ -200,3 +200,35 @@ def lower_function(program_runner, prototype_runner) -> None:
 
     str_py: str = input_str.value.decode('utf-8', errors='replace')
     program_runner.value_stack.append(String(str_py.upper().encode('utf-8')))
+
+
+@library.register('substring')
+def substring_function(program_runner, prototype_runner) -> None:
+    input_str: AnyType = program_runner.value_stack.pop()
+    from_idx: AnyType = program_runner.value_stack.pop()
+    to_idx: AnyType = program_runner.value_stack.pop()
+
+    if not isinstance(input_str, String):
+        raise TypeException(prototype_runner, "bad argument #1 to 'substring' (string expected)")
+    if not isinstance(from_idx, Integer):
+        raise TypeException(prototype_runner, "bad argument #2 to 'substring' (number/integer expected)")
+    if not isinstance(to_idx, Integer):
+        raise TypeException(prototype_runner, "bad argument #3 to 'substring' (number/integer expected)")
+
+    str_py: str = input_str.value.decode('utf-8', errors='replace')
+    str_len: int = len(str_py)
+    from_idx_py: int = from_idx.value
+    to_idx_py: int = to_idx.value
+
+    if from_idx_py > 0:
+        from_idx_py = from_idx_py - 1
+
+    result_str_py: str
+    if from_idx_py >= str_len or to_idx_py <= 0 or from_idx_py >= to_idx_py:
+        result_str_py = ""
+    else:
+        final_py_start = max(0, from_idx_py)
+        final_py_end = min(str_len, to_idx_py)
+        result_str_py = str_py[final_py_start:final_py_end]
+
+    program_runner.value_stack.append(String(result_str_py.encode('utf-8')))

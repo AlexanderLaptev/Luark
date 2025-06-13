@@ -25,3 +25,4 @@ print(find("hello world", "wor"))
 print(lower("HeLLo World!"))
 print(upper("Hello World!"))
 
+print(substring("Hello World!", 4, 8))
