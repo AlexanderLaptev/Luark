@@ -22,15 +22,15 @@ class Call(Opcode):
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         function = program_runner.value_stack.pop()
-        if function is not Function | NativeFunction:
+        if not isinstance(function, Function) and not isinstance(function, NativeFunction):
             raise TypeException(prototype_runner=prototype_runner, message="Can not call not a callable object")
 
-        if function is Function:
+        if isinstance(function, Function):
             assert isinstance(function, Function)
             program_runner.push_prototype(function.prototype)
             return
 
-        if function is NativeFunction:
+        if isinstance(function, NativeFunction):
             assert isinstance(function, NativeFunction)
             function.function(program_runner, prototype_runner)
             prototype_runner.step()

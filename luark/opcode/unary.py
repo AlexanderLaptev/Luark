@@ -60,9 +60,9 @@ class UnaryOperation(Opcode):
 
     @staticmethod
     def _negate(value: Integer | Float):
-        if value is Integer:
+        if isinstance(value, Integer):
             return Integer(-value.value)
-        if value is Float:
+        if isinstance(value, Float):
             return Float(-value.value)
 
     @staticmethod

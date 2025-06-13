@@ -1,5 +1,7 @@
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
+from luark.vm.luavm import ProgramRunner, PrototypeRunner
+from luark.vm.types import AnyType
 
 
 class UpvalueOpcode(Opcode):
@@ -22,6 +24,11 @@ class UpvalueOpcode(Opcode):
 class LoadUpvalue(UpvalueOpcode):
     def __init__(self, index: int):
         super().__init__("load_upvalue", index)
+
+    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        env = program_runner.env
+        value: AnyType = env.get(self.index)
+        program_runner.value_stack.append(value)
 
 
 class StoreUpvalue(UpvalueOpcode):

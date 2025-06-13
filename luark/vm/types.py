@@ -96,5 +96,5 @@ class NativeFunction(AnyType):
 
 
 def assert_not_nil(value: AnyType):
-    if value is Nil:
+    if isinstance(value, Nil):
         raise NilPointerException()

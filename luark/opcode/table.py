@@ -34,7 +34,7 @@ class GetTable(Opcode):
         table = program_runner.value_stack.pop()
         key = program_runner.value_stack.pop()
 
-        if table is not Table:
+        if not isinstance(table, Table):
             raise TypeException(prototype_runner, message="Not a table")
         assert isinstance(table, Table)
 
@@ -58,7 +58,7 @@ class SetTable(Opcode):
         table = program_runner.value_stack.pop()
         key = program_runner.value_stack.pop()
 
-        if table is not Table:
+        if not isinstance(table, Table):
             raise TypeException(prototype_runner, message="Not a table")
         assert isinstance(table, Table)
 

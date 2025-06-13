@@ -1,10 +1,10 @@
 
-local a = function(a, b)
+local foo = function(a)
     print(a)
-    return a + b
+    --return (a + b)
 end
 
-a(1, 2)
+foo(1, 2)
 
 -- a = 1
 -- a = 1, 2

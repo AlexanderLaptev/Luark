@@ -18,11 +18,11 @@ class Test(Opcode):
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         value = program_runner.value_stack.pop()
 
-        if value is Nil:
+        if isinstance(value, Nil):
             prototype_runner.step(1)
             return
 
-        if value is Boolean:
+        if isinstance(value, Boolean):
             assert isinstance(value, Boolean)
             if not value.value:
                 prototype_runner.step(1)
@@ -42,7 +42,7 @@ class TestNil(Opcode):
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
         value = program_runner.value_stack.pop()
-        if value is Nil:
+        if isinstance(value, Nil):
             prototype_runner.step(2)
         else:
             prototype_runner.step(1)
