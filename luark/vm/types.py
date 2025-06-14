@@ -12,7 +12,10 @@ class AnyType(ABC):
     value: object
 
     def __str__(self) -> str:
-        return ""
+        pass
+
+    def __bool__(self) -> bool:
+        return True
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,9 @@ class Boolean(AnyType):
     def __str__(self):
         return str(self.value).lower()
 
+    def __bool__(self) -> bool:
+        return self.value
+
 
 @dataclass(frozen=True)
 class Nil(AnyType):
@@ -57,6 +63,9 @@ class Nil(AnyType):
 
     def __str__(self):
         return "nil"
+
+    def __bool__(self) -> bool:
+        return False
 
 
 @dataclass(frozen=False)

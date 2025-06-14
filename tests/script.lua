@@ -1,5 +1,5 @@
 -- rightfully stolen from https://gist.github.com/hoffoo/b420d1ecc60ad6ec44e5
-local array = {1,2,0,0,3,1,2}
+local array = { 5, 3, 3, 4, 1, 2, 2 }
 
 function swap(a, b, table)
     if table[a] == nil or table[b] == nil then
@@ -30,4 +30,4 @@ for i = 1, #array do
     print(array[i])
 end
 
-print(tonumber("5") + 1)
+print(tonumber("5")*2)

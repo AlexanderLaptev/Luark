@@ -1,13 +1,13 @@
-from typing import Self
+from abc import ABC, abstractmethod
+from typing import Callable, Self
 
 from luark.opcode import Opcode
 from luark.program import Program, Prototype
-from luark.vm.exception import TypeException, UnsupportedOperation
 from luark.vm.luavm import ProgramRunner, PrototypeRunner
 from luark.vm.types import AnyType, Boolean, Float, Integer, String
 
 
-class BinaryOperation(Opcode):
+class BinaryOperation(ABC, Opcode):
     CONCATENATE: Self
 
     OR: Self
@@ -48,248 +48,108 @@ class BinaryOperation(Opcode):
     def comment_str(self, program: Program, proto: Prototype, pc: int) -> str:
         return self.operation_name
 
-    def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+    def run(self, pr: ProgramRunner, pt: PrototypeRunner):
         result: AnyType
-        second: AnyType = program_runner.value_stack.pop()
-        first: AnyType = program_runner.value_stack.pop()
-        match self.operation:
-            case 0:
-                result = self._concat(first, second, prototype_runner)
-            case 1:
-                result = self._or(first, second, prototype_runner)
-            case 2:
-                result = self._and(first, second, prototype_runner)
-            case 3:
-                result = self._less_than(first, second, prototype_runner)
-            case 4:
-                result = self._greater_than(first, second, prototype_runner)
-            case 5:
-                result = self._less_or_equal_than(first, second, prototype_runner)
-            case 6:
-                result = self._greater_or_equal_than(first, second, prototype_runner)
-            case 7:
-                result = self._equal(first, second, prototype_runner)
-            case 8:
-                result = self._not_equal(first, second, prototype_runner)
-            case 9:
-                result = self._add(first, second, prototype_runner)
-            case 10:
-                result = self._subtract(first, second, prototype_runner)
-            case 11:
-                result = self._multiply(first, second, prototype_runner)
-            case 12:
-                result = self._divide(first, second, prototype_runner)
-            case 13:
-                result = self._floor_divide(first, second, prototype_runner)
-            case 14:
-                result = self._modulo_divide(first, second, prototype_runner)
-            case 15:
-                result = self._exponentiate(first, second, prototype_runner)
-            case 16:
-                result = self._bitwise_or(first, second, prototype_runner)
-            case 17:
-                result = self._bitwise_xor(first, second, prototype_runner)
-            case 18:
-                result = self._bitwise_and(first, second, prototype_runner)
-            case 19:
-                result = self._bitwise_left_shift(first, second, prototype_runner)
-            case 20:
-                result = self._bitwise_right_shift(first, second, prototype_runner)
-            case _:
-                raise UnsupportedOperation(prototype_runner)
+        second: AnyType = pr.value_stack.pop()
+        first: AnyType = pr.value_stack.pop()
+        self._run(pr, pt, first, second)
+        pt.step()
 
-        program_runner.value_stack.append(result)
-        prototype_runner.step()
+    @abstractmethod
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
         pass
 
-    @staticmethod
-    def _concat(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        return String(str(first).encode() + str(second).encode())
 
-    @staticmethod
-    def _or(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if not isinstance(first, Boolean) or not isinstance(second, Boolean):
-            raise TypeException(prototype_runner)
-        return Boolean(first.value or second.value)
+class ConcatenateOperation(BinaryOperation):
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
+        pr.value_stack.append(String((str(first) + str(second)).encode("utf-8")))
 
-    @staticmethod
-    def _and(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if not isinstance(first, Boolean) or not isinstance(second, Boolean):
-            raise TypeException(prototype_runner)
-        return Boolean(first.value and second.value)
 
-    # todo: I dont convert Int to Float (or back) yet.
-    @staticmethod
-    def _less_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value < second.value)
+class OrOperation(BinaryOperation):
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
+        pr.value_stack.append(Boolean(bool(first) or bool(second)))
+
+
+class AndOperation(BinaryOperation):
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
+        pr.value_stack.append(Boolean(bool(first) and bool(second)))
+
+
+class ComparisonOperation(BinaryOperation):
+    def __init__(self, operation: int, name: str, comparator: Callable):
+        super().__init__(operation, name)
+        self.comparator = comparator
+
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
+        if isinstance(first, Integer | Float) and isinstance(second, Integer | Float):
+            pr.value_stack.append(Boolean(self.comparator(float(first.value), float(second.value))))
+        elif isinstance(first, String) and isinstance(second, String):
+            pr.value_stack.append(Boolean(self.comparator(str(first), str(second))))
+        else:
+            raise TypeError
+
+
+class EqualityOperation(BinaryOperation):
+    def __init__(self, operation: int, name: str, comparator: Callable):
+        super().__init__(operation, name)
+        self.comparator = comparator
+
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
+        if type(first) != type(second):
+            pr.value_stack.append(Boolean(False))
+        else:
+            pr.value_stack.append(Boolean(self.comparator(first.value, second.value)))
+
+
+class ArithmeticOperation(BinaryOperation):
+    def __init__(self, operation: int, name: str, calculator: Callable):
+        super().__init__(operation, name)
+        self.calculator = calculator
+
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
         if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value < second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value < second.value)
-        raise TypeException(prototype_runner)
+            pr.value_stack.append(Integer(self.calculator(first.value, second.value)))
+        elif isinstance(first, Float) or isinstance(second, Float):
+            pr.value_stack.append(Float(self.calculator(float(first.value), float(second.value))))
+        else:
+            raise TypeError
 
-    @staticmethod
-    def _greater_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value > second.value)
+
+class BitwiseOperation(BinaryOperation):
+    def __init__(self, operation: int, name: str, calculator: Callable):
+        super().__init__(operation, name)
+        self.calculator = calculator
+
+    def _run(self, pr: ProgramRunner, pt: PrototypeRunner, first: AnyType, second: AnyType) -> None:
         if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value > second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value > second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _less_or_equal_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value <= second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value <= second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value <= second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _greater_or_equal_than(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value >= second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value >= second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value >= second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        return Boolean(first.value == second.value)
-        # if isinstance(first, Float) and isinstance(second, Float):
-        #     return Boolean(first.value == second.value)
-        # if isinstance(first, Integer) and isinstance(second, Integer):
-        #     return Boolean(first.value == second.value)
-        # if isinstance(first, String) and isinstance(second, String):
-        #     return Boolean(first.value == second.value)
-        # else:
-        #     return Boolean(False)
-        # raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _not_equal(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Boolean(first.value != second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Boolean(first.value != second.value)
-        if isinstance(first, String) and isinstance(second, String):
-            return Boolean(first.value != second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _add(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) or isinstance(second, Float):
-            return Float(first.value + second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value + second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _subtract(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Float(first.value - second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value - second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _multiply(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Float(first.value * second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value * second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Float(first.value / second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Float(first.value / second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _floor_divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Float):
-            return Float(first.value // second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value // second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _modulo_divide(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value % second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _exponentiate(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Float) and isinstance(second, Integer):
-            return Float(first.value ** second.value)
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value ** second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _bitwise_or(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value | second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _bitwise_xor(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value ^ second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _bitwise_and(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value & second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _bitwise_left_shift(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value << second.value)
-        raise TypeException(prototype_runner)
-
-    @staticmethod
-    def _bitwise_right_shift(first: AnyType, second: AnyType, prototype_runner: PrototypeRunner):
-        if isinstance(first, Integer) and isinstance(second, Integer):
-            return Integer(first.value >> second.value)
-        raise TypeException(prototype_runner)
+            pr.value_stack.append(Integer(self.calculator(first.value, second.value)))
+        else:
+            raise TypeError
 
 
-BinaryOperation.CONCATENATE = BinaryOperation(0, "concat")
+BinaryOperation.CONCATENATE = ConcatenateOperation(0, "concat")
 
-BinaryOperation.OR = BinaryOperation(1, "or")
-BinaryOperation.AND = BinaryOperation(2, "and")
-BinaryOperation.LESS_THAN = BinaryOperation(3, "lt")
-BinaryOperation.GREATER_THAN = BinaryOperation(4, "gt")
-BinaryOperation.LESS_OR_EQUAL = BinaryOperation(5, "le")
-BinaryOperation.GREATER_OR_EQUAL = BinaryOperation(6, "ge")
-BinaryOperation.EQUAL = BinaryOperation(7, "eq")
-BinaryOperation.NOT_EQUAL = BinaryOperation(8, "neq")
+BinaryOperation.OR = OrOperation(1, "or")
+BinaryOperation.AND = AndOperation(2, "and")
+BinaryOperation.LESS_THAN = ComparisonOperation(3, "lt", lambda x, y: x < y)
+BinaryOperation.GREATER_THAN = ComparisonOperation(4, "gt", lambda x, y: x > y)
+BinaryOperation.LESS_OR_EQUAL = ComparisonOperation(5, "le", lambda x, y: x <= y)
+BinaryOperation.GREATER_OR_EQUAL = ComparisonOperation(6, "ge", lambda x, y: x >= y)
+BinaryOperation.EQUAL = EqualityOperation(7, "eq", lambda x, y: x == y)
+BinaryOperation.NOT_EQUAL = EqualityOperation(8, "neq", lambda x, y: x != y)
 
-BinaryOperation.ADD = BinaryOperation(9, "add")
-BinaryOperation.SUBTRACT = BinaryOperation(10, "sub")
-BinaryOperation.MULTIPLY = BinaryOperation(11, "mul")
-BinaryOperation.DIVIDE = BinaryOperation(12, "div")
-BinaryOperation.FLOOR_DIVIDE = BinaryOperation(13, "fdiv")
-BinaryOperation.MODULO_DIVIDE = BinaryOperation(14, "mod")
-BinaryOperation.EXPONENTIATE = BinaryOperation(15, "exp")
+BinaryOperation.ADD = ArithmeticOperation(9, "add", lambda x, y: x + y)
+BinaryOperation.SUBTRACT = ArithmeticOperation(10, "sub", lambda x, y: x - y)
+BinaryOperation.MULTIPLY = ArithmeticOperation(11, "mul", lambda x, y: x * y)
+BinaryOperation.DIVIDE = ArithmeticOperation(12, "div", lambda x, y: x / y)
+BinaryOperation.FLOOR_DIVIDE = ArithmeticOperation(13, "fdiv", lambda x, y: x // y)
+BinaryOperation.MODULO_DIVIDE = ArithmeticOperation(14, "mod", lambda x, y: x % y)
+BinaryOperation.EXPONENTIATE = ArithmeticOperation(15, "exp", lambda x, y: x ** y)
 
-BinaryOperation.BITWISE_OR = BinaryOperation(16, "bor")
-BinaryOperation.BITWISE_XOR = BinaryOperation(17, "bxor")
-BinaryOperation.BITWISE_AND = BinaryOperation(18, "band")
-BinaryOperation.BITWISE_LEFT_SHIFT = BinaryOperation(19, "lsh")
-BinaryOperation.BITWISE_RIGHT_SHIFT = BinaryOperation(20, "rsh")
+BinaryOperation.BITWISE_OR = ArithmeticOperation(16, "bor", lambda x, y: x | y)
+BinaryOperation.BITWISE_XOR = ArithmeticOperation(17, "bxor", lambda x, y: x ^ y)
+BinaryOperation.BITWISE_AND = ArithmeticOperation(18, "band", lambda x, y: x & y)
+BinaryOperation.BITWISE_LEFT_SHIFT = ArithmeticOperation(19, "lsh", lambda x, y: x << y)
+BinaryOperation.BITWISE_RIGHT_SHIFT = ArithmeticOperation(20, "rsh", lambda x, y: x >> y)
 
 BinaryOperation._frozen = True

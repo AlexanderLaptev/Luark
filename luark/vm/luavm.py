@@ -66,4 +66,4 @@ class LuaVM:
         while len(self.runner.call_stack) > 0:
             current: PrototypeRunner = self.runner.call_stack[-1]
             opcode = current.prototype.opcodes[current.program_counter]
-            opcode.run(program_runner=self.runner, prototype_runner=current)
+            opcode.run(self.runner, current)
