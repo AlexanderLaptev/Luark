@@ -9,6 +9,8 @@ if typing.TYPE_CHECKING:
 
 
 class AnyType(ABC):
+    value: object
+
     def __str__(self) -> str:
         return ""
 
@@ -46,7 +48,7 @@ class Boolean(AnyType):
     value: bool
 
     def __str__(self):
-        return str(self.value)
+        return str(self.value).lower()
 
 
 @dataclass(frozen=True)

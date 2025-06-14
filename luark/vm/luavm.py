@@ -20,6 +20,8 @@ class ProgramRunner:
     def __init__(self, program: Program):
         self.value_stack: list[AnyType] = []
         self.marks: list[int] = []
+        self.params: int = 0
+        self.returns: int = 0
         self.env: dict[int, AnyType] = {}
         self.call_stack: list[PrototypeRunner] = []
         self.program: Program = program

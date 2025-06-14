@@ -4,7 +4,7 @@ import math
 import typing
 from typing import Callable
 
-from luark.vm.exception import DefaultError, TypeException
+from luark.vm.exception import BaseRuntimeException, DefaultError, TypeException
 from luark.vm.types import AnyType, Boolean, Float, Function, Integer, NativeFunction, Nil, String, Table
 
 if typing.TYPE_CHECKING:
@@ -51,10 +51,25 @@ library = Library()
 def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     count = len(program_runner.value_stack) - program_runner.peek_mark()
     for value in reversed(program_runner.value_stack[-count:]):
-        if isinstance(value, Boolean):
-            print(str(value).lower())
-        else:
-            print(str(value))
+        print(str(value))
+
+
+@library.register("tostring")
+def tostring_function(pr: ProgramRunner, pt: PrototypeRunner) -> None:
+    if pr.params == 0:
+        raise BaseRuntimeException("bad argument #1 for 'tostring' (value expected)")
+    value = pr.value_stack.pop()
+    result = str(value)
+    pr.value_stack.append(String(result.encode("utf-8")))
+
+
+@library.register("tonumber")
+def tonumber_function(pr: ProgramRunner, pt: PrototypeRunner) -> None:
+    if pr.params == 0:
+        raise BaseRuntimeException("bad argument #1 for 'tonumber' (value expected)")
+    elif pr.params == 1:
+        value = pr.value_stack.pop()
+        pr.value_stack.append(Float(float(str(value))))
 
 
 @library.register("type")

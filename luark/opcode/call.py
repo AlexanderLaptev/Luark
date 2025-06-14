@@ -20,6 +20,9 @@ class Call(Opcode):
         return f"p:{self.param_count} r:{returns}"
 
     def run(self, program_runner: ProgramRunner, prototype_runner: PrototypeRunner):
+        program_runner.params = self.param_count
+        program_runner.returns = self.return_count
+
         closure = program_runner.value_stack.pop()
         if isinstance(closure, Function):
             expected_args = closure.prototype.fixed_param_count
@@ -36,6 +39,7 @@ class Call(Opcode):
             prototype_runner.step()
         elif isinstance(closure, NativeFunction):
             closure.function(program_runner, prototype_runner)
+            program_runner.pop_mark()
             prototype_runner.step()
         else:
             raise TypeException(prototype_runner=prototype_runner, message="Cannot call a non-callable object")
