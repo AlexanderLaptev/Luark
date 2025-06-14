@@ -50,8 +50,10 @@ library = Library()
 @library.register("print")
 def print_function(program_runner: ProgramRunner, prototype_runner: PrototypeRunner) -> None:
     count = len(program_runner.value_stack) - program_runner.peek_mark()
-    for value in reversed(program_runner.value_stack[-count:]):
-        print(str(value))
+    values = (str(x) for x in reversed(program_runner.value_stack[-count:]))
+    values = "\t".join(values)
+    print(values)
+    del program_runner.value_stack[-count:]
 
 
 @library.register("tostring")

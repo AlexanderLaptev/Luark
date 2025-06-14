@@ -25,9 +25,14 @@ function bubblesort(array)
     end
 end
 
+print("bubblesorting!")
 bubblesort(array)
 for i = 1, #array do
     print(array[i])
 end
+print("finished bubblesorting!")
+print()
 
+print(1, 2, 3)
 print(tonumber("5")*2)
+print(#tostring(2*5))
