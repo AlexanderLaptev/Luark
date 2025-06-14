@@ -35,4 +35,13 @@ print()
 
 print(1, 2, 3)
 print(tonumber("5")*2)
-print(#tostring(2*5))
+local result = 2 * 5
+print(result, #tostring(result))
+print("we can ".."concat".." strings and".." more: "..result..", "..(2*3>7))
+
+
+function factorial(n)
+    if n <= 1 then do return 1 end end
+    return n * factorial(n - 1) -- no tailrec optimization sadly (yet) :(
+end
+print(factorial(5))
